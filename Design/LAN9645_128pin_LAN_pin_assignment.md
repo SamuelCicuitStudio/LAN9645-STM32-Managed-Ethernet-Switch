@@ -6,7 +6,7 @@
 - Copper speed target: 10/100 Mbps operation (managed mode configuration over SPI)
 - SerDes used: SGMII0 and SGMII1
 - External 125 MHz SerDes reference clock used
-- Host MCU: STM32H743 (MAC), connected by RGMII
+- Host MCU: STM32H743 (MAC), connected by RMII
 - Management interface: SPI (STM32 SPI host -> LAN9645 SPI client)
 - Copper LEDs: enabled (including strap-overlap pins where needed)
 
@@ -17,7 +17,7 @@
   - Section 3.4 (strap definitions)
 - LAN96459F Hardware Design Checklist DS00006273B
   - Section 4 (straps + LED overlap)
-  - Section 8 (RGMII)
+  - Section 8 (RGMII/RMII)
   - Section 9.2 (SPI pin options)
 
 ## Interface Pin Map (Locked)
@@ -49,25 +49,22 @@ Recommended startup behavior:
 - Keep clock valid before releasing LAN9645 `nRESET`, because straps are latched at reset release.
 - Keep STM32 as control-only for this clock path (enable/disable). Do not source `SERDES_125M_CLK` directly from STM32 MCO.
 
-### RGMII used for STM32H743: RGMII1 (recommended)
-Cross as MAC-to-MAC style:
-- STM32 `TX*` -> LAN `RGMII1_RX*`
-- STM32 `RX*` <- LAN `RGMII1_TX*`
+### RMII used for STM32H743: RMII1 on GPIO4..13 (recommended)
+Reason: avoids overlap with critical managed straps on GPIO24..28 (BOOT_MODE/MGMT_MODE).
 
-| LAN9645 Signal | GPIO | TQFP Pin | Connect to STM32 ETH signal |
-|---|---:|---:|---|
-| RGMII1_RXD0 | GPIO_4 | 95 | TXD0 |
-| RGMII1_RXD1 | GPIO_5 | 94 | TXD1 |
-| RGMII1_RXD2_RXER | GPIO_6 | 93 | TXD2 |
-| RGMII1_RXD3 | GPIO_7 | 91 | TXD3 |
-| RGMII1_RXC_REFCLK | GPIO_8 | 90 | TX_CLK |
-| RGMII1_RXCTL_CRS_DV | GPIO_9 | 89 | TX_CTL/TX_EN |
-| RGMII1_TXC_REFCLK | GPIO_10 | 87 | RX_CLK |
-| RGMII1_TXCTL_TX_DV | GPIO_11 | 86 | RX_CTL/RX_DV |
-| RGMII1_TXD0 | GPIO_12 | 85 | RXD0 |
-| RGMII1_TXD1 | GPIO_13 | 83 | RXD1 |
-| RGMII1_TXD2 | GPIO_14 | 82 | RXD2 |
-| RGMII1_TXD3 | GPIO_15 | 81 | RXD3 |
+| STM32 ETH Signal | LAN9645 Signal (RMII1) | GPIO | TQFP Pin | Direction |
+|---|---|---:|---:|---|
+| ETH_TXD0 | RGMII1_RXD0 | GPIO_4 | 95 | STM32 -> LAN |
+| ETH_TXD1 | RGMII1_RXD1 | GPIO_5 | 94 | STM32 -> LAN |
+| ETH_TX_EN | RGMII1_RXCTL_CRS_DV | GPIO_9 | 89 | STM32 -> LAN |
+| ETH_RXD0 | RGMII1_TXD0 | GPIO_12 | 85 | LAN -> STM32 |
+| ETH_RXD1 | RGMII1_TXD1 | GPIO_13 | 83 | LAN -> STM32 |
+| ETH_CRS_DV | RGMII1_TXCTL_TX_DV | GPIO_11 | 86 | LAN -> STM32 |
+| ETH_REF_CLK | RGMII1_TXC_REFCLK | GPIO_10 | 87 | LAN -> STM32 (50 MHz in internal-clock mode) |
+
+RMII notes:
+- `RGMII1_RXD2_RXER` (GPIO_6, pin 93) is optional in RMII mode. STM32H743 RMII set you listed does not require it.
+- `RGMII1_RXC_REFCLK` (GPIO_8, pin 90) is not used in the selected internal REF_CLK output mode.
 
 ### SPI management (selected pin group)
 Use GPIO[0:3] (keeps GPIO40/41 free for PHY1 LEDs).
@@ -79,12 +76,33 @@ Use GPIO[0:3] (keeps GPIO40/41 free for PHY1 LEDs).
 | SI_DI (MOSI into LAN9645) | GPIO_0 | 100 | ALT1 |
 | SI_DO (MISO out of LAN9645) | GPIO_1 | 99 | ALT1 |
 
+STM32 mapping for control SPI:
+- STM32 `SPIx_NSS` -> LAN `SI_nCS` (pin 98)
+- STM32 `SPIx_SCK` -> LAN `SI_CLK` (pin 97)
+- STM32 `SPIx_MOSI` -> LAN `SI_DI` (pin 100)
+- STM32 `SPIx_MISO` <- LAN `SI_DO` (pin 99)
+
+### Additional STM32 control lines
+| Function | LAN9645 Pin | GPIO | TQFP Pin | Direction |
+|---|---|---:|---:|---|
+| LAN_RST | nRESET | - | 101 | STM32 -> LAN (active-low reset) |
+| IRQ0 | IRQ0 alt function on GPIO_33 | GPIO_33 | 60 | LAN -> STM32 EXTI |
+
+IRQ0 note:
+- `GPIO_33` is also strap `EEPROM_SIZE` at reset latch; keep its strap resistor and still use IRQ0 after boot.
+
+LAN_RST note:
+- Keep `nRESET` pulled up to `VDD_IO_A` (for example 100k pull-up) and optionally 0.1 uF to GND, as in checklist guidance.
+
 ## Exact Startup Strap Plan (Pin -> GND/VCC)
 
 Notes:
 - `VCC` means the **matching VDD_IO domain rail** for that GPIO bank.
 - If all VDD_IO rails are 3.3V in your design, then every `VCC` below is 3.3V.
 - Strap resistors shown are recommended external defaults for this project.
+- Managed-mode policy used here:
+  - Keep only required straps HIGH.
+  - Pull all other unused/unmanaged strap inputs LOW for deterministic startup.
 
 ### Managed-mode critical straps (must be fixed)
 | Strap | GPIO / Pin | Value | Connect at startup |
@@ -114,9 +132,9 @@ Resulting key values:
 | FLOW_EN | GPIO_11 / pin 86 | 0 | 47k to GND |
 | EEE_EN | GPIO_12 / pin 85 | 0 | 47k to GND |
 | LED_MODE | GPIO_13 / pin 83 | 0 | 47k to GND |
-| CUPHY_MODE | GPIO_14 / pin 82 | 1 | 47k to VCC (`VDD_IO_B`) |
+| CUPHY_MODE | GPIO_14 / pin 82 | 0 | 47k to GND |
 | SFP_EN | GPIO_15 / pin 81 | 0 | 47k to GND |
-| EEPROM_SIZE | GPIO_33 / pin 60 | 0 | 10k to GND (`VDD_IO_D` domain is 3.3V) |
+| EEPROM_SIZE | GPIO_33 / pin 60 | 0 | 22k to GND (`VDD_IO_D` domain is 3.3V) |
 | GPIO_MODE0 | GPIO_36 / pin 41 | 0 | 10k to GND |
 | GPIO_MODE1 | GPIO_37 / pin 40 | 0 | 10k to GND |
 | SD_MODE0 | GPIO_39 / pin 36 | 0 | 10k to GND |
@@ -124,7 +142,65 @@ Resulting key values:
 | XMII_MODE0 | GPIO_41 / pin 34 | 0 | 10k to GND |
 | XMII_MODE1 | GPIO_38 / pin 38 | 0 | 10k to GND |
 
-Why 47k on GPIO10..15: these pins are used by RGMII1 data/clock after reset, so weaker straps reduce high-speed loading.
+Why 47k on GPIO10..15: these pins are used by RMII1 data/clock after reset, so weaker straps reduce dynamic loading.
+Why 22k on GPIO33: still robust low strap for `EEPROM_SIZE=0`, but lighter load when GPIO_33 is used as IRQ0 output.
+Critical: if `SD_125M=1`, do not tie `SGPIO_EN` high. `SGPIO_EN` must be strapped low.
+Critical: your previous note saying `SGPIO_EN` connected to +3V3 conflicts with `SD_125M=1`; this must be changed to GND strap.
+Note: `CUPHY_MODE` is strapped low here because it is unmanaged-only and your policy is pull-down for unused strap features. In managed mode, copper behavior is set by SPI software configuration.
+
+### Strap quick summary (direct wiring checklist)
+| Strap pin | GPIO | TQFP pin | Tie at startup |
+|---|---:|---:|---|
+| BOOT_MODE0 | 24 | 70 | GND |
+| BOOT_MODE1 | 25 | 68 | GND |
+| BOOT_MODE2 | 26 | 67 | GND |
+| MGMT_MODE0 | 27 | 66 | VCC |
+| MGMT_MODE1 | 28 | 65 | VCC |
+| JTAG_ENB | 34 | 43 | VCC |
+| SD_125M | 23 | 71 | VCC |
+| SGPIO_EN | 22 | 72 | GND |
+| LOOP_EN | 35 | 42 | GND |
+| E2E_CLOCK_EN | 10 | 87 | GND |
+| FLOW_EN | 11 | 86 | GND |
+| EEE_EN | 12 | 85 | GND |
+| LED_MODE | 13 | 83 | GND |
+| CUPHY_MODE | 14 | 82 | GND |
+| SFP_EN | 15 | 81 | GND |
+| EEPROM_SIZE | 33 | 60 | GND |
+| GPIO_MODE0 | 36 | 41 | GND |
+| GPIO_MODE1 | 37 | 40 | GND |
+| SD_MODE0 | 39 | 36 | GND |
+| SD_MODE1 | 40 | 35 | GND |
+| XMII_MODE0 | 41 | 34 | GND |
+| XMII_MODE1 | 38 | 38 | GND |
+
+### Strap usage classification (this project)
+| Strap | Used in this managed design? | Why |
+|---|---|---|
+| BOOT_MODE0/1/2 | Yes | Required managed boot mode selection (`000`) |
+| MGMT_MODE0/1 | Yes | Required SPI management interface selection (`11`) |
+| JTAG_ENB | Yes | Required debug interface default (disabled) |
+| SD_125M | Yes | Required for external 125 MHz SerDes reference |
+| SGPIO_EN | Yes (constraint) | Must be LOW when `SD_125M=1` |
+| EEPROM_SIZE | No (function), but strapped | Unmanaged EEPROM option; kept LOW and pin reused as IRQ0 after boot |
+| LOOP_EN | No (function), but strapped | Unmanaged feature; forced LOW |
+| E2E_CLOCK_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1 REF_CLK path) |
+| FLOW_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
+| EEE_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
+| LED_MODE | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
+| CUPHY_MODE | No (function), but strapped | Unmanaged feature; forced LOW |
+| SFP_EN | No (function), but strapped | Unmanaged feature; forced LOW |
+| GPIO_MODE0/1 | No (function), but strapped | Unmanaged GPIO-mode selection; forced LOW |
+| SD_MODE0/1 | No (function), but strapped | Unmanaged SerDes mode selection; forced LOW |
+| XMII_MODE0/1 | No (function), but strapped | Unmanaged RMII/RGMII mode selection; forced LOW |
+
+## Managed-mode RMII bring-up targets (software)
+After reset latch and SPI access is available:
+- Assign RMII1 interface to the intended internal port module using `RGMII_1_CFG` RMII selection.
+- Enable RMII on GPIOs (`RMII_ENA=1`).
+- Keep RGMII mode disabled for this interface (`RGMII_ENA=0` for the RMII-used interface path).
+- Set `REF_CLK_SEL` for internal 50 MHz output mode when LAN drives STM32 `ETH_REF_CLK`.
+- Release RMII RX/TX reset controls (`RMII_RX_RST=0`, `RMII_TX_RST=0`).
 
 ## Copper LED Pin Plan (with strap overlap handled)
 
@@ -147,7 +223,7 @@ Why 47k on GPIO10..15: these pins are used by RGMII1 data/clock after reset, so 
 This keeps PHY1 LEDs functional and guarantees the strap levels at reset.
 
 ## Reset / Strap Latch Sequence (important)
-1. Hold STM32 RGMII/SPI pins in high-impedance during LAN9645 reset release.
+1. Hold STM32 RMII/SPI pins in high-impedance during LAN9645 reset release.
 2. Ensure `SERDES_125M_CLK` is present at `S0_CLKP` (pin 45) before releasing LAN9645 `nRESET`.
 3. Release LAN9645 `nRESET` (pin 101); straps are latched on this edge.
 4. After boot stabilization (~14 ms per checklist), start SPI register configuration.
@@ -155,4 +231,4 @@ This keeps PHY1 LEDs functional and guarantees the strap levels at reset.
 ## Final Implementation Notes
 - Do not use SPI alternate pins on GPIO40..43 in this design, because GPIO40/41 are allocated to PHY1 LEDs + straps.
 - In managed mode, final copper speed/duplex behavior is configured through registers over SPI.
-- `CUPHY_MODE=1` above is retained as a deterministic fallback strap choice (10/100 advertise behavior in unmanaged context).
+- `CUPHY_MODE` is strapped low by policy (unused unmanaged features pulled down). Copper link policy is controlled in managed mode by software.
