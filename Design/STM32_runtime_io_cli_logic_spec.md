@@ -82,8 +82,10 @@ This is a strict implementation contract for firmware preparation before coding.
 
 ## 4.2 Command response routing
 - Command responses go only to current owner channel.
-- Critical alarms/errors go to both USB and UART4.
+- Error/alarm lines go to current owner channel only.
+- If owner is `NONE`, error/alarm lines go to both channels until owner is set.
 - Periodic status summaries go to owner only.
+- Current owner channel is the active debug serial line.
 
 ## 4.3 Explicit redirect commands (mandatory)
 - `console owner usb` -> force owner to USB
@@ -185,6 +187,7 @@ No other button functions are allowed in phase 1.
 - `bridge usb_uart on`
 - `bridge usb_uart off`
 - `bridge status`
+- `debug line show`
 - `log level <info|warn|err|dbg>`
 - `time show`
 
@@ -232,4 +235,3 @@ flowchart TD
 3. LED and button behavior is frozen for phase 1.
 4. RTC log timestamp format is frozen.
 5. This document is used as the reference for implementation tickets.
-

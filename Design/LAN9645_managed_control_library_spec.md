@@ -406,6 +406,7 @@ This section is strict for phase-1 firmware implementation.
 - `bridge usb_uart on`
 - `bridge usb_uart off`
 - `bridge status`
+- `debug line show`
 - `time show`
 
 ### 4.3.4 USB/UART behavior (exact)
@@ -415,9 +416,11 @@ This section is strict for phase-1 firmware implementation.
 - if enumerated: CLI owner = USB.
 - if not enumerated after 3 s: CLI owner = UART4.
 3. Command input is accepted only from current owner.
-4. Critical errors are mirrored to both USB and UART4.
-5. If USB enumerates later, owner switches to USB automatically.
-6. `bridge usb_uart on` behavior:
+4. All runtime errors are forwarded only to current owner channel (`USB` or `UART4`).
+5. If owner is `NONE`, errors are forwarded to both channels until an owner is acquired.
+6. The current owner channel is the active debug serial line.
+7. If USB enumerates later, owner switches to USB automatically.
+8. `bridge usb_uart on` behavior:
 - USB RX bytes are forwarded to UART TX.
 - UART RX bytes are forwarded to USB TX.
 - CLI parser is suspended while bridge is ON.
