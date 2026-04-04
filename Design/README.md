@@ -10,6 +10,8 @@ Documentation is split into two folders:
 
 ## Firmware docs
 - `Design/firmware/LAN9645_managed_control_library_spec.md`
+- `Design/firmware/LAN9645_library_implementation_plan.md`
+- `Design/firmware/LAN9645_user_phy_driver_spec.md`
 - `Design/firmware/LAN9645_stm32_firmware_direction_hal_lwip.md`
 - `Design/firmware/LAN9645_stm32_physical_comm_cli_plan.md`
 - `Design/firmware/LAN9645_switch_config_and_ping_bringup.md`

@@ -4,6 +4,8 @@ This folder contains firmware-side implementation specifications for STM32H743 +
 
 ## Files
 - `LAN9645_managed_control_library_spec.md`: main managed-control library contract.
+- `LAN9645_library_implementation_plan.md`: step-by-step implementation plan to build the library cleanly from generated firmware.
+- `LAN9645_user_phy_driver_spec.md`: dedicated USER_PHY adapter specification for LAN9645 managed mode.
 - `LAN9645_stm32_firmware_direction_hal_lwip.md`: HAL ETH + LwIP architecture direction.
 - `LAN9645_stm32_physical_comm_cli_plan.md`: physical interfaces, error IDs, and CLI control model.
 - `LAN9645_switch_config_and_ping_bringup.md`: switch setup and ping bring-up sequence.
