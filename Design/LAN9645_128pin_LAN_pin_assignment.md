@@ -148,51 +148,31 @@ Critical: if `SD_125M=1`, do not tie `SGPIO_EN` high. `SGPIO_EN` must be strappe
 Critical: your previous note saying `SGPIO_EN` connected to +3V3 conflicts with `SD_125M=1`; this must be changed to GND strap.
 Note: `CUPHY_MODE` is strapped low here because it is unmanaged-only and your policy is pull-down for unused strap features. In managed mode, copper behavior is set by SPI software configuration.
 
-### Strap quick summary (direct wiring checklist)
-| Strap pin | GPIO | TQFP pin | Tie at startup |
-|---|---:|---:|---|
-| BOOT_MODE0 | 24 | 70 | GND |
-| BOOT_MODE1 | 25 | 68 | GND |
-| BOOT_MODE2 | 26 | 67 | GND |
-| MGMT_MODE0 | 27 | 66 | VCC |
-| MGMT_MODE1 | 28 | 65 | VCC |
-| JTAG_ENB | 34 | 43 | VCC |
-| SD_125M | 23 | 71 | VCC |
-| SGPIO_EN | 22 | 72 | GND |
-| LOOP_EN | 35 | 42 | GND |
-| E2E_CLOCK_EN | 10 | 87 | GND |
-| FLOW_EN | 11 | 86 | GND |
-| EEE_EN | 12 | 85 | GND |
-| LED_MODE | 13 | 83 | GND |
-| CUPHY_MODE | 14 | 82 | GND |
-| SFP_EN | 15 | 81 | GND |
-| EEPROM_SIZE | 33 | 60 | GND |
-| GPIO_MODE0 | 36 | 41 | GND |
-| GPIO_MODE1 | 37 | 40 | GND |
-| SD_MODE0 | 39 | 36 | GND |
-| SD_MODE1 | 40 | 35 | GND |
-| XMII_MODE0 | 41 | 34 | GND |
-| XMII_MODE1 | 38 | 38 | GND |
-
-### Strap usage classification (this project)
-| Strap | Used in this managed design? | Why |
-|---|---|---|
-| BOOT_MODE0/1/2 | Yes | Required managed boot mode selection (`000`) |
-| MGMT_MODE0/1 | Yes | Required SPI management interface selection (`11`) |
-| JTAG_ENB | Yes | Required debug interface default (disabled) |
-| SD_125M | Yes | Required for external 125 MHz SerDes reference |
-| SGPIO_EN | Yes (constraint) | Must be LOW when `SD_125M=1` |
-| EEPROM_SIZE | No (function), but strapped | Unmanaged EEPROM option; kept LOW and pin reused as IRQ0 after boot |
-| LOOP_EN | No (function), but strapped | Unmanaged feature; forced LOW |
-| E2E_CLOCK_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1 REF_CLK path) |
-| FLOW_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
-| EEE_EN | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
-| LED_MODE | No (function), but strapped | Unmanaged feature; forced LOW (pin reused by RMII1) |
-| CUPHY_MODE | No (function), but strapped | Unmanaged feature; forced LOW |
-| SFP_EN | No (function), but strapped | Unmanaged feature; forced LOW |
-| GPIO_MODE0/1 | No (function), but strapped | Unmanaged GPIO-mode selection; forced LOW |
-| SD_MODE0/1 | No (function), but strapped | Unmanaged SerDes mode selection; forced LOW |
-| XMII_MODE0/1 | No (function), but strapped | Unmanaged RMII/RGMII mode selection; forced LOW |
+### Definitive bootstrap matrix (managed SPI + RMII1 + 125 MHz SerDes)
+| Strap | GPIO | TQFP pin | Used in this mode? | Required state | Managed-mode note |
+|---|---:|---:|---|---|---|
+| BOOT_MODE0 | 24 | 70 | USED (mandatory) | LOW | `BOOT_MODE[2:0]=000` |
+| BOOT_MODE1 | 25 | 68 | USED (mandatory) | LOW | `BOOT_MODE[2:0]=000` |
+| BOOT_MODE2 | 26 | 67 | USED (mandatory) | LOW | `BOOT_MODE[2:0]=000` |
+| MGMT_MODE0 | 27 | 66 | USED (mandatory) | HIGH | `MGMT_MODE[1:0]=11` for SPI client |
+| MGMT_MODE1 | 28 | 65 | USED (mandatory) | HIGH | `MGMT_MODE[1:0]=11` for SPI client |
+| JTAG_ENB | 34 | 43 | USED (mandatory) | HIGH | JTAG disabled |
+| SD_125M | 23 | 71 | USED (mandatory) | HIGH | external 125 MHz SerDes ref enabled |
+| SGPIO_EN | 22 | 72 | USED (constraint) | LOW | must be LOW when `SD_125M=1` |
+| LOOP_EN | 35 | 42 | UNUSED (strapped) | LOW | unmanaged feature, forced low |
+| E2E_CLOCK_EN | 10 | 87 | UNUSED (strapped) | LOW | unmanaged feature, pin reused by RMII1 |
+| FLOW_EN | 11 | 86 | UNUSED (strapped) | LOW | unmanaged feature, pin reused by RMII1 |
+| EEE_EN | 12 | 85 | UNUSED (strapped) | LOW | unmanaged feature, pin reused by RMII1 |
+| LED_MODE | 13 | 83 | UNUSED (strapped) | LOW | unmanaged feature, pin reused by RMII1 |
+| CUPHY_MODE | 14 | 82 | UNUSED (strapped) | LOW | unmanaged feature, forced low |
+| SFP_EN | 15 | 81 | UNUSED (strapped) | LOW | unmanaged feature, forced low |
+| EEPROM_SIZE | 33 | 60 | UNUSED (strapped) | LOW | unmanaged EEPROM strap; pin later used as IRQ0 |
+| GPIO_MODE0 | 36 | 41 | UNUSED (strapped) | LOW | unmanaged GPIO mode strap |
+| GPIO_MODE1 | 37 | 40 | UNUSED (strapped) | LOW | unmanaged GPIO mode strap |
+| SD_MODE0 | 39 | 36 | UNUSED (strapped) | LOW | unmanaged SerDes mode strap |
+| SD_MODE1 | 40 | 35 | UNUSED (strapped) | LOW | unmanaged SerDes mode strap; also PHY1_LED0 pin |
+| XMII_MODE0 | 41 | 34 | UNUSED (strapped) | LOW | unmanaged XMII strap; also PHY1_LED1 pin |
+| XMII_MODE1 | 38 | 38 | UNUSED (strapped) | LOW | unmanaged XMII strap |
 
 ## Managed-mode RMII bring-up targets (software)
 After reset latch and SPI access is available:
@@ -203,6 +183,25 @@ After reset latch and SPI access is available:
 - Release RMII RX/TX reset controls (`RMII_RX_RST=0`, `RMII_TX_RST=0`).
 
 ## Copper LED Pin Plan (with strap overlap handled)
+
+### Validation of your selected pins (documentation cross-check)
+Your chosen LED pins are correct for CuPHY0/CuPHY1 in 128-TQFP:
+- `PHY0_LED1` -> pin 31 (`GPIO_43`, ALT2)
+- `PHY0_LED0` -> pin 33 (`GPIO_42`, ALT2)
+- `PHY1_LED1` -> pin 34 (`GPIO_41`, ALT2)
+- `PHY1_LED0` -> pin 35 (`GPIO_40`, ALT2)
+
+This matches:
+- DS00006066C pin map (`GPIO_43` pin 31, `GPIO_42` pin 33, `GPIO_41` pin 34, `GPIO_40` pin 35)
+- DS00006273B Table 4-2 LED names and ALT mappings
+
+Important overlap check (also documented in DS00006273B Table 4-3):
+- pin 35 (`GPIO_40`) overlaps strap `SD_MODE1`
+- pin 34 (`GPIO_41`) overlaps strap `XMII_MODE0` / RGMII1 mode strap
+
+This still makes sense in managed mode, as long as:
+- strap levels are fixed at reset (both strapped LOW in this design), and
+- firmware configures these GPIOs to LED function (ALT2) after boot.
 
 ### Selected LED outputs
 | LED Function | GPIO | TQFP Pin | Strap overlap |
