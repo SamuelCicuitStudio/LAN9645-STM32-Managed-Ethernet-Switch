@@ -5,6 +5,7 @@
 - Copper ports used: CuPHY0 and CuPHY1
 - Copper speed target: 10/100 Mbps operation (managed mode configuration over SPI)
 - SerDes used: SGMII0 and SGMII1
+- External 125 MHz SerDes reference clock used
 - Host MCU: STM32H743 (MAC), connected by RGMII
 - Management interface: SPI (STM32 SPI host -> LAN9645 SPI client)
 - Copper LEDs: enabled (including strap-overlap pins where needed)
@@ -32,6 +33,21 @@
 |---|---|
 | SGMII0 (S0_CLKP, S0_TXN/P, S0_RXN/P) | 45, 46, 48, 49, 50 |
 | SGMII1 (S1_TXN/P, S1_RXN/P) | 53, 55, 56, 57 |
+
+### 125 MHz SerDes reference clock (controlled by STM32)
+Use an external low-jitter 125 MHz oscillator and let STM32 control its enable pin.
+
+| Net | From | To | Notes |
+|---|---|---|---|
+| `SERDES_125M_CLK` | 125 MHz oscillator output | LAN9645 `S0_CLKP` (pin 45) | Clock input for SerDes reference mode |
+| `SERDES_125M_EN` | STM32 GPIO output | Oscillator `OE/EN` pin | STM32 controls clock ON/OFF after boot |
+
+Recommended startup behavior:
+- Add pull resistor on oscillator enable so clock is ON by default at power-up:
+  - If enable pin is active-high (`OE/EN`): 10k pull-up to VCC
+  - If enable pin is active-low (`nOE`): 10k pull-down to GND
+- Keep clock valid before releasing LAN9645 `nRESET`, because straps are latched at reset release.
+- Keep STM32 as control-only for this clock path (enable/disable). Do not source `SERDES_125M_CLK` directly from STM32 MCO.
 
 ### RGMII used for STM32H743: RGMII1 (recommended)
 Cross as MAC-to-MAC style:
@@ -79,20 +95,20 @@ Notes:
 | MGMT_MODE0 | GPIO_27 / pin 66 | 1 | 10k to VCC (`VDD_IO_C`) |
 | MGMT_MODE1 | GPIO_28 / pin 65 | 1 | 10k to VCC (`VDD_IO_C`) |
 | JTAG_ENB | GPIO_34 / pin 43 | 1 | 10k to VCC (`VDD_IO_E`) |
-| SD_125M | GPIO_23 / pin 71 | 0 | 10k to GND |
+| SD_125M | GPIO_23 / pin 71 | 1 | 10k to VCC (`VDD_IO_C`) |
 
 Resulting key values:
 - `BOOT_MODE[2:0] = 000` (managed, no internal ROM unmanaged boot)
 - `MGMT_MODE[1:0] = 11` (SPI client)
 - `JTAG_ENB = 1` (JTAG disabled)
-- `SD_125M = 0` (no external 125 MHz SerDes reference assumed)
+- `SD_125M = 1` (external 125 MHz SerDes reference enabled)
 
 ### Additional straps fixed for deterministic startup
 (These are unmanaged-feature straps; still tied explicitly.)
 
 | Strap | GPIO / Pin | Value | Connect at startup |
 |---|---|---:|---|
-| SGPIO_EN | GPIO_22 / pin 72 | 0 | 10k to GND |
+| SGPIO_EN | GPIO_22 / pin 72 | 0 | 10k to GND (must be 0 when `SD_125M=1`) |
 | LOOP_EN | GPIO_35 / pin 42 | 0 | 10k to GND |
 | E2E_CLOCK_EN | GPIO_10 / pin 87 | 0 | 47k to GND |
 | FLOW_EN | GPIO_11 / pin 86 | 0 | 47k to GND |
@@ -132,8 +148,9 @@ This keeps PHY1 LEDs functional and guarantees the strap levels at reset.
 
 ## Reset / Strap Latch Sequence (important)
 1. Hold STM32 RGMII/SPI pins in high-impedance during LAN9645 reset release.
-2. Release LAN9645 `nRESET` (pin 101); straps are latched on this edge.
-3. After boot stabilization (~14 ms per checklist), start SPI register configuration.
+2. Ensure `SERDES_125M_CLK` is present at `S0_CLKP` (pin 45) before releasing LAN9645 `nRESET`.
+3. Release LAN9645 `nRESET` (pin 101); straps are latched on this edge.
+4. After boot stabilization (~14 ms per checklist), start SPI register configuration.
 
 ## Final Implementation Notes
 - Do not use SPI alternate pins on GPIO40..43 in this design, because GPIO40/41 are allocated to PHY1 LEDs + straps.
