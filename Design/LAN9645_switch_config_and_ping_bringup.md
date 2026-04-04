@@ -17,6 +17,7 @@ This file defines what to configure in LAN9645 and in what order.
   - `JTAG_ENB = 1`
   - `SD_125M = 1`
   - `SGPIO_EN = 0`
+- `SD_125M` / `SGPIO_EN` are selected by external jumper/strap hardware (not runtime-controlled by STM32)
 - STM32 interface to LAN9645: RMII1 + SPI + `LAN_RST` + `IRQ0`
 - SPI pins:
   - `SI_nCS`: pin 98
@@ -36,6 +37,13 @@ This file defines what to configure in LAN9645 and in what order.
   - Section 9.2 (SPI pin mapping)
 
 ## 1) SPI Access Layer (must work first)
+
+## 0) Hardware Strap/Jumper Preconditions (before firmware starts)
+- Verify jumper states:
+  - `SD_125M = HIGH`
+  - `SGPIO_EN = LOW`
+- Verify 125 MHz clock is present at `S0_CLKP` before deasserting `LAN_RST`.
+- If jumper state is incorrect, firmware cannot "fix" it at runtime; stop and report hardware configuration error.
 
 ### 1.1 SPI protocol format
 SI implements SPI-compatible register access:

@@ -7,7 +7,7 @@
 	(lib_symbols)
 	(wire
 		(pts
-			(xy 90.17 76.2) (xy 111.76 76.2)
+			(xy 91.44 76.2) (xy 111.76 76.2)
 		)
 		(stroke
 			(width 0)
@@ -17,7 +17,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 68.58) (xy 111.76 68.58)
+			(xy 91.44 68.58) (xy 111.76 68.58)
 		)
 		(stroke
 			(width 0)
@@ -27,7 +27,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 48.26) (xy 111.76 48.26)
+			(xy 91.44 48.26) (xy 111.76 48.26)
 		)
 		(stroke
 			(width 0)
@@ -37,7 +37,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 45.72) (xy 111.76 45.72)
+			(xy 91.44 45.72) (xy 111.76 45.72)
 		)
 		(stroke
 			(width 0)
@@ -47,7 +47,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 43.18) (xy 111.76 43.18)
+			(xy 91.44 43.18) (xy 111.76 43.18)
 		)
 		(stroke
 			(width 0)
@@ -57,7 +57,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 63.5) (xy 111.76 63.5)
+			(xy 91.44 63.5) (xy 111.76 63.5)
 		)
 		(stroke
 			(width 0)
@@ -67,7 +67,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 71.12) (xy 111.76 71.12)
+			(xy 91.44 71.12) (xy 111.76 71.12)
 		)
 		(stroke
 			(width 0)
@@ -77,7 +77,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 40.64) (xy 111.76 40.64)
+			(xy 91.44 40.64) (xy 111.76 40.64)
 		)
 		(stroke
 			(width 0)
@@ -87,7 +87,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 55.88) (xy 111.76 55.88)
+			(xy 91.44 55.88) (xy 111.76 55.88)
 		)
 		(stroke
 			(width 0)
@@ -97,7 +97,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 66.04) (xy 111.76 66.04)
+			(xy 91.44 66.04) (xy 111.76 66.04)
 		)
 		(stroke
 			(width 0)
@@ -107,7 +107,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 50.8) (xy 111.76 50.8)
+			(xy 91.44 50.8) (xy 111.76 50.8)
 		)
 		(stroke
 			(width 0)
@@ -117,7 +117,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 78.74) (xy 111.76 78.74)
+			(xy 91.44 78.74) (xy 111.76 78.74)
 		)
 		(stroke
 			(width 0)
@@ -127,7 +127,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 53.34) (xy 111.76 53.34)
+			(xy 91.44 53.34) (xy 111.76 53.34)
 		)
 		(stroke
 			(width 0)
@@ -136,7 +136,7 @@
 		(uuid "d8608e4a-e021-4eac-ba1e-986b92f98ca4")
 	)
 	(sheet
-		(at 67.31 34.29)
+		(at 68.58 34.29)
 		(size 22.86 52.07)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -152,7 +152,7 @@
 		)
 		(uuid "82c3e10f-2eb9-405d-83e3-e53634851f67")
 		(property "Sheetname" "MCU"
-			(at 67.31 33.4006 0)
+			(at 68.58 33.4006 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -163,7 +163,7 @@
 			)
 		)
 		(property "Sheetfile" "mcu.kicad_sch"
-			(at 67.31 87.1224 0)
+			(at 68.58 87.1224 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -172,7 +172,7 @@
 			)
 		)
 		(pin "ETH_CRS_DV" output
-			(at 90.17 45.72 0)
+			(at 91.44 45.72 0)
 			(uuid "c6a9e53f-04f7-4eb3-ac85-e4fd85e8ea88")
 			(effects
 				(font
@@ -184,7 +184,7 @@
 			)
 		)
 		(pin "ETH_REF_CLK" input
-			(at 90.17 55.88 0)
+			(at 91.44 55.88 0)
 			(uuid "45fb93bb-3ed4-43aa-9769-0f7f2682d2bc")
 			(effects
 				(font
@@ -196,7 +196,7 @@
 			)
 		)
 		(pin "ETH_RXD0" output
-			(at 90.17 40.64 0)
+			(at 91.44 40.64 0)
 			(uuid "482d670b-6546-4418-9607-12dee9644044")
 			(effects
 				(font
@@ -208,7 +208,7 @@
 			)
 		)
 		(pin "ETH_RXD1" output
-			(at 90.17 43.18 0)
+			(at 91.44 43.18 0)
 			(uuid "db1cabab-c268-47b1-9b02-657e827d5e9d")
 			(effects
 				(font
@@ -220,7 +220,7 @@
 			)
 		)
 		(pin "ETH_TXD0" input
-			(at 90.17 50.8 0)
+			(at 91.44 50.8 0)
 			(uuid "3d036f25-64d3-4701-a463-182bc94d4df3")
 			(effects
 				(font
@@ -232,7 +232,7 @@
 			)
 		)
 		(pin "ETH_TXD1" input
-			(at 90.17 53.34 0)
+			(at 91.44 53.34 0)
 			(uuid "92eb200f-52ff-403e-a9b9-4a267d7e75ab")
 			(effects
 				(font
@@ -244,7 +244,7 @@
 			)
 		)
 		(pin "ETH_TX_EN" output
-			(at 90.17 48.26 0)
+			(at 91.44 48.26 0)
 			(uuid "0d4b687d-254b-4a5c-a368-bbbab5574660")
 			(effects
 				(font
@@ -256,7 +256,7 @@
 			)
 		)
 		(pin "SPIMOSI" output
-			(at 90.17 66.04 0)
+			(at 91.44 66.04 0)
 			(uuid "384e6d76-197b-4645-87dc-abab2d8dd699")
 			(effects
 				(font
@@ -268,7 +268,7 @@
 			)
 		)
 		(pin "SPI_MISO" input
-			(at 90.17 68.58 0)
+			(at 91.44 68.58 0)
 			(uuid "87b8e83d-a57c-4414-9075-2cbb9827051b")
 			(effects
 				(font
@@ -280,7 +280,7 @@
 			)
 		)
 		(pin "SPI_NSS" output
-			(at 90.17 71.12 0)
+			(at 91.44 71.12 0)
 			(uuid "ea1c8d88-bd4c-4c2e-993e-bc5245c40334")
 			(effects
 				(font
@@ -292,7 +292,7 @@
 			)
 		)
 		(pin "SPI_SCK" bidirectional
-			(at 90.17 63.5 0)
+			(at 91.44 63.5 0)
 			(uuid "eb9cf1d0-a76c-4a0b-b1a3-f72ef7d1ac1d")
 			(effects
 				(font
@@ -304,7 +304,7 @@
 			)
 		)
 		(pin "IRQ0" input
-			(at 90.17 78.74 0)
+			(at 91.44 78.74 0)
 			(uuid "45bc9d13-772b-4e8d-a245-1b2be999561b")
 			(effects
 				(font
@@ -316,7 +316,7 @@
 			)
 		)
 		(pin "LAN_RST" output
-			(at 90.17 76.2 0)
+			(at 91.44 76.2 0)
 			(uuid "66a6b685-b3a4-45e6-a6d0-c15042deefab")
 			(effects
 				(font

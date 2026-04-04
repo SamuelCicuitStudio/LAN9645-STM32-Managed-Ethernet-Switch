@@ -34,20 +34,22 @@
 | SGMII0 (S0_CLKP, S0_TXN/P, S0_RXN/P) | 45, 46, 48, 49, 50 |
 | SGMII1 (S1_TXN/P, S1_RXN/P) | 53, 55, 56, 57 |
 
-### 125 MHz SerDes reference clock (controlled by STM32)
-Use an external low-jitter 125 MHz oscillator and let STM32 control its enable pin.
+### 125 MHz SerDes reference clock (hardware strap/jumper controlled)
+Use an external low-jitter 125 MHz oscillator.
+In this design, `SD_125M` and `SGPIO_EN` are selected by external jumper/strap hardware (not by STM32 runtime GPIO control).
 
 | Net | From | To | Notes |
 |---|---|---|---|
 | `SERDES_125M_CLK` | 125 MHz oscillator output | LAN9645 `S0_CLKP` (pin 45) | Clock input for SerDes reference mode |
-| `SERDES_125M_EN` | STM32 GPIO output | Oscillator `OE/EN` pin | STM32 controls clock ON/OFF after boot |
+| `SD_125M_SEL` | External strap/jumper | LAN9645 `GPIO_23/SD_125M` (pin 71) | Set HIGH for 125 MHz mode |
+| `SGPIO_EN_SEL` | External strap/jumper | LAN9645 `GPIO_22/SGPIO_EN` (pin 72) | Must be LOW when `SD_125M=1` |
 
 Recommended startup behavior:
-- Add pull resistor on oscillator enable so clock is ON by default at power-up:
-  - If enable pin is active-high (`OE/EN`): 10k pull-up to VCC
-  - If enable pin is active-low (`nOE`): 10k pull-down to GND
-- Keep clock valid before releasing LAN9645 `nRESET`, because straps are latched at reset release.
-- Keep STM32 as control-only for this clock path (enable/disable). Do not source `SERDES_125M_CLK` directly from STM32 MCO.
+- Keep `SERDES_125M_CLK` valid before releasing LAN9645 `nRESET`, because straps are latched at reset release.
+- Keep jumper/strap logic fixed at boot:
+  - `SD_125M=1`
+  - `SGPIO_EN=0`
+- Do not source `SERDES_125M_CLK` directly from STM32 MCO.
 
 ### RMII used for STM32H743: RMII1 on GPIO4..13 (recommended)
 Reason: avoids overlap with critical managed straps on GPIO24..28 (BOOT_MODE/MGMT_MODE).
@@ -149,6 +151,10 @@ Critical: your previous note saying `SGPIO_EN` connected to +3V3 conflicts with 
 Note: `CUPHY_MODE` is strapped low here because it is unmanaged-only and your policy is pull-down for unused strap features. In managed mode, copper behavior is set by SPI software configuration.
 
 ### Definitive bootstrap matrix (managed SPI + RMII1 + 125 MHz SerDes)
+Control source note:
+- `SD_125M` and `SGPIO_EN` states are provided by external jumper hardware in this project.
+- STM32 firmware does not change these strap states at runtime.
+
 | Strap | GPIO | TQFP pin | Used in this mode? | Required state | Managed-mode note |
 |---|---:|---:|---|---|---|
 | BOOT_MODE0 | 24 | 70 | USED (mandatory) | LOW | `BOOT_MODE[2:0]=000` |
