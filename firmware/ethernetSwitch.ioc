@@ -2,7 +2,9 @@
 CAD.formats=[]
 CAD.pinconfig=Dual
 CAD.provider=Component Search Engine
-CORTEX_M7.IPParameters=default_mode_Activation
+CORTEX_M7.CPU_DCache=Enabled
+CORTEX_M7.CPU_ICache=Enabled
+CORTEX_M7.IPParameters=default_mode_Activation,CPU_DCache,CPU_ICache
 CORTEX_M7.default_mode_Activation=1
 ETH.IPParameters=MediaInterface
 ETH.MediaInterface=HAL_ETH_RMII_MODE
