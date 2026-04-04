@@ -225,6 +225,12 @@ Recommended startup behavior:
 - route runtime errors to current active CLI owner channel
 - if no owner exists, mirror errors to both USB and UART4 until owner is acquired
 - treat current owner channel as the active debug serial line
+- mandatory LAN communication errors to route with this policy:
+  - `E_SPI_IFSTAT`
+  - `E_SPI_TIMEOUT`
+  - `E_STRAP_CFG`
+  - `E_IRQ_STUCK`
+  - `E_DROP_RATE`
 
 ---
 

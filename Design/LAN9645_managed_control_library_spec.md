@@ -447,6 +447,50 @@ This section is strict for phase-1 firmware implementation.
 3. Long press (>=3 s): execute LAN re-initialization sequence.
 4. No additional button functions are allowed in phase 1.
 
+### 4.3.7 LAN9645 communication fault routing (exact)
+This subsection is mandatory for all LAN9645<->STM32 communication faults.
+
+1. Mandatory LAN communication error IDs:
+- `LAN9645_E_SPI_IFSTAT`: `DEVCPU_GCB::IF_CFGSTAT.IF_STAT=1` after SI read.
+- `LAN9645_E_SPI_TIMEOUT`: SPI SI transaction timeout or invalid response window exceeded.
+- `LAN9645_E_STRAP_EXPECTATION`: runtime behavior inconsistent with locked strap profile.
+- `LAN9645_E_IRQ_STUCK`: `IRQ0` asserted with no clearable interrupt source.
+- `LAN9645_E_DROP_COUNTER_ALERT`: persistent RX/TX/drop counter anomaly during active traffic.
+
+2. Mandatory serial forwarding rule:
+- always emit LAN communication errors on the current CLI owner channel (`USB` or `UART4`).
+- if owner is `NONE`, mirror the same error line to both USB CDC and UART4.
+- this routing rule is not optional and is the required debug-line behavior.
+
+3. Mandatory error log line format:
+- `[timestamp][ERR][LAN][<ERROR_ID>] <text>; dev=<dev>; reg=<addr>; ctx=<context>`
+- example:
+  - `[2026-04-04 14:32:10][ERR][LAN][LAN9645_E_SPI_TIMEOUT] SPI timeout; dev=8; reg=IF_CFGSTAT; ctx=read`
+
+4. Mandatory runtime handling:
+- `LAN9645_E_SPI_IFSTAT`:
+  - clear `IF_STAT`.
+  - retry the failed SI read/write up to 3 times.
+  - if still failing, escalate to `LAN9645_E_SPI_TIMEOUT`.
+- `LAN9645_E_SPI_TIMEOUT`:
+  - retry transaction up to 3 times.
+  - if still failing, pulse `LAN_RST` and execute full LAN re-init.
+  - if re-init fails, set `ERR` LED steady ON and hold in degraded state.
+- `LAN9645_E_STRAP_EXPECTATION`:
+  - do not continue LAN bring-up.
+  - set `ERR` LED steady ON and emit persistent fault line every 2 s.
+- `LAN9645_E_IRQ_STUCK`:
+  - read/clear interrupt status path once.
+  - if stuck condition remains, perform LAN re-init and report fault counter.
+
+5. Mandatory CLI observability for LAN faults:
+- `status errors` must show, for each LAN error ID:
+  - occurrence count
+  - first timestamp
+  - last timestamp
+  - last context
+- `debug line show` must display current owner (`USB`, `UART4`, or `NONE`) and whether mirroring is active.
+
 ---
 
 ## 5) Register Mapping Strategy (important)

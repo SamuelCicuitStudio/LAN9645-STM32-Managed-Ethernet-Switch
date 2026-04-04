@@ -87,6 +87,17 @@ This is a strict implementation contract for firmware preparation before coding.
 - Periodic status summaries go to owner only.
 - Current owner channel is the active debug serial line.
 
+## 4.2.1 LAN9645 communication errors (mandatory routing)
+- The following LAN communication errors must always be forwarded using the rule above:
+  - `LAN9645_E_SPI_IFSTAT`
+  - `LAN9645_E_SPI_TIMEOUT`
+  - `LAN9645_E_STRAP_EXPECTATION`
+  - `LAN9645_E_IRQ_STUCK`
+  - `LAN9645_E_DROP_COUNTER_ALERT`
+- Forwarding is mandatory on USB CDC or UART4 according to `active_cli_owner`.
+- If `active_cli_owner=NONE`, mirror each LAN error line to both USB CDC and UART4.
+- `status errors` and `debug line show` must expose this state without optional paths.
+
 ## 4.3 Explicit redirect commands (mandatory)
 - `console owner usb` -> force owner to USB
 - `console owner uart` -> force owner to UART4
