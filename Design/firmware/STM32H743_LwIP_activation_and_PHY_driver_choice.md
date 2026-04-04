@@ -32,6 +32,7 @@ Why:
 ## 2.2 Cortex-M7/cache
 - Enable `I-Cache`
 - Enable `D-Cache` (required by CubeMX condition on H7 for LwIP activation)
+- Current project state (confirmed on April 4, 2026): both are enabled.
 
 ## 2.3 LwIP middleware
 - Enable `LwIP`
@@ -111,4 +112,3 @@ If this is wrong, symptoms include:
 | MbedTLS | Disabled (initial) |
 | PHY driver in CubeMX | `Undefined` / `User-defined` |
 | LAN8742 driver | Not used |
-

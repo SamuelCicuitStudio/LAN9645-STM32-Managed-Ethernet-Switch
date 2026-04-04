@@ -31,6 +31,7 @@ This section reflects what is currently generated in `D:\Freelancer\luisspranger
 - LwIP netconn/socket APIs: disabled (`LWIP_NETCONN=0`, `LWIP_SOCKET=0`)
 - Checksum offload path: `CHECKSUM_BY_HARDWARE=1`
 - Platform PHY selection: `USER_PHY`
+- Cortex-M7 cache state (confirmed on April 4, 2026): `I-Cache=ENABLED`, `D-Cache=ENABLED`
 
 ### 0.2 Current generated static IPv4 values
 - IP: `192.168.10.50`

@@ -8,6 +8,10 @@ For this project, firmware will use:
 
 `Mongoose` is not required for initial bring-up and ping validation.
 
+Current MCU cache baseline (confirmed on April 4, 2026):
+- `I-Cache` enabled
+- `D-Cache` enabled
+
 ---
 
 ## 1) Firmware Architecture
@@ -157,4 +161,3 @@ Phase C:
 
 Phase D:
 - add advanced controls (VLAN/QoS/ACL) to LAN library
-
