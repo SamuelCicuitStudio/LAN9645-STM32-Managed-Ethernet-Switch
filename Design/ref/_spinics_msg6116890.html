@@ -1,0 +1,843 @@
+<!-- MHonArc v2.6.24 -->
+<!--X-Subject: [PATCH net&#45;next v2 2/9] dt&#45;bindings: net: lan9645x: add LAN9645X switch bindings -->
+<!--X-From-R13: Xraf Szvy Epuhym Øfgretnneq	&#60;wrafrzvy.fpuhymbfgretnneqNzvpebpuvc.pbz> -->
+<!--X-Date: Tue, 24 Mar 2026 04:04:29 &#45;0700 -->
+<!--X-Message-Id: 20260324&#45;dsa_lan9645x_switch_driver_base&#45;v2&#45;2&#45;f7504e3b0681@microchip.com -->
+<!--X-Content-Type: text/plain -->
+<!--X-Reference: 20260324&#45;dsa_lan9645x_switch_driver_base&#45;v2&#45;0&#45;f7504e3b0681@microchip.com -->
+<!--X-Head-End-->
+<!doctype html public "-//W3C//DTD HTML//EN">
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Linux Kernel: [PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings">
+<meta name="og:title" content="Linux Kernel: [PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings">
+<meta property="og:type" content="website" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="alternate" type="application/rss+xml" title="Linux Kernel" href="//feedproxy.google.com/LkmlLinuxKernelArchive">
+<title>[PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings &mdash; Linux Kernel</title>
+<style>
+<!--
+ pre {white-space: pre-wrap;}
+-->
+</style>
+<script type="text/javascript">
+ function toggleMe(a){
+ var e=document.getElementById(a);
+ var b=document.getElementById("abtn");
+ if(!e)return true;
+ if(e.style.display=="none"){
+ e.style.display="block"
+ b.style.display="none"
+ }
+ else{
+ e.style.display="none"
+ }
+ return true;
+ }
+</script>
+</head>
+<body itemscope itemtype="https://schema.org/Article" vlink=green>
+<!--X-Body-Begin-->
+<!--X-User-Header-->
+<!--X-User-Header-End-->
+<!--X-TopPNI-->
+<script>
+  (function() {
+    var cx = 'partner-pub-3422782820843221:4730684408';
+    var gcse = document.createElement('script');
+    gcse.type = 'text/javascript';
+    gcse.async = true;
+    gcse.src = 'https://cse.google.com/cse.js?cx=' + cx;
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(gcse, s);
+  })();
+</script>
+<gcse:searchbox-only></gcse:searchbox-only>
+<h1 itemprop="name">[PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings</h1>
+[<a href="msg6116889.html">Date Prev</a>][<a href="msg6116891.html">Date Next</a>][<a href="msg6133589.html">Thread Prev</a>][<a href="msg6127299.html">Thread Next</a>][<a href="mail19.html#6116890">Date Index</a>][<a href="thrd15.html#6116890">Thread Index</a>] 
+<p>&nbsp;<br>
+<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- responsive test for archives -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-3422782820843221"
+     data-ad-slot="6345952567"
+     data-ad-format="auto"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+
+<!--X-TopPNI-End-->
+<!--X-MsgBody-->
+<!--X-Subject-Header-Begin-->
+<hr>
+<!--X-Subject-Header-End-->
+<!--X-Head-of-Message-->
+<ul>
+<li><em>To</em>: &lt;UNGLinuxDriver@xxxxxxxxxxxxx&gt;, Andrew Lunn &lt;andrew@xxxxxxx&gt;,        &quot;Vladimir Oltean&quot; &lt;olteanv@xxxxxxxxx&gt;,        &quot;David S. Miller&quot; &lt;davem@xxxxxxxxxxxxx&gt;,        &quot;Eric Dumazet&quot; &lt;edumazet@xxxxxxxxxx&gt;,        Jakub Kicinski &lt;kuba@xxxxxxxxxx&gt;, Paolo Abeni	&lt;pabeni@xxxxxxxxxx&gt;,        Simon Horman &lt;horms@xxxxxxxxxx&gt;, Rob Herring	&lt;robh@xxxxxxxxxx&gt;,        Krzysztof Kozlowski &lt;krzk+dt@xxxxxxxxxx&gt;,        Conor Dooley	&lt;conor+dt@xxxxxxxxxx&gt;,        Woojung Huh &lt;woojung.huh@xxxxxxxxxxxxx&gt;,        Russell King	&lt;linux@xxxxxxxxxxxxxxx&gt;,        Steen Hegelund &lt;Steen.Hegelund@xxxxxxxxxxxxx&gt;,        Daniel Machon &lt;daniel.machon@xxxxxxxxxxxxx&gt;</li>
+<li><em>Subject</em>: [PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings</li>
+<li><em>From</em>: Jens Emil Schulz &#xD8;stergaard	&lt;jensemil.schulzostergaard@xxxxxxxxxxxxx&gt;</li>
+<li><em>Date</em>: Tue, 24 Mar 2026 11:46:45 +0100</li>
+<li><em>Cc</em>: &lt;linux-kernel@xxxxxxxxxxxxxxx&gt;, &lt;netdev@xxxxxxxxxxxxxxx&gt;,        &lt;devicetree@xxxxxxxxxxxxxxx&gt;,        Jens Emil Schulz &#xD8;stergaard	&lt;jensemil.schulzostergaard@xxxxxxxxxxxxx&gt;</li>
+<li><em>References</em>: &lt;<a href="msg6116893.html">20260324-dsa_lan9645x_switch_driver_base-v2-0-f7504e3b0681@microchip.com</a>&gt;</li>
+</ul>
+<!--X-Head-of-Message-End-->
+<!--X-Head-Body-Sep-Begin-->
+<hr>
+<p>
+<div class="content" itemprop="articleBody">
+<!--X-Head-Body-Sep-End-->
+<!--X-Body-of-Message-->
+<pre>Add bindings for LAN9645X switch. We use a fallback compatible for the
+smallest SKU microchip,lan96455s-switch.
+
+Reviewed-by: Steen Hegelund &lt;Steen.Hegelund@xxxxxxxxxxxxx&gt;
+Signed-off-by: Jens Emil Schulz &#xD8;stergaard &lt;jensemil.schulzostergaard@xxxxxxxxxxxxx&gt;
+---
+Changes in v2:
+- rename file to microchip,lan96455s-switch.yaml
+- remove led vendor property
+- add {rx,tx}-internal-delay-ps for rgmii delay
+- remove labels from example
+- remove container node from example
+---
+ .../net/dsa/microchip,lan96455s-switch.yaml        | 119 +++++++++++++++++++++
+ MAINTAINERS                                        |   1 +
+ 2 files changed, 120 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/microchip,lan96455s-switch.yaml b/Documentation/devicetree/bindings/net/dsa/microchip,lan96455s-switch.yaml
+new file mode 100644
+index 000000000000..0282e25c05d4
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/microchip,lan96455s-switch.yaml
+@@ -0,0 +1,119 @@
++# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
++%YAML 1.2
++---
++$id: <a  rel="nofollow" href="http://devicetree.org/schemas/net/dsa/microchip,lan96455s-switch.yaml#">http://devicetree.org/schemas/net/dsa/microchip,lan96455s-switch.yaml#</a>
++$schema: <a  rel="nofollow" href="http://devicetree.org/meta-schemas/core.yaml#">http://devicetree.org/meta-schemas/core.yaml#</a>
++
++title: Microchip LAN9645x Ethernet switch
++
++maintainers:
++  - Jens Emil Schulz &#xD8;stergaard &lt;jensemil.schulzostergaard@xxxxxxxxxxxxx&gt;
++
++description: |
++  The LAN9645x switch is a multi-port Gigabit AVB/TSN Ethernet switch with
++  five integrated 10/100/1000Base-T PHYs. In addition to the integrated PHYs,
++  it supports up to 2 RGMII/RMII, up to 2 BASE-X/SERDES/2.5GBASE-X and one
++  Quad-SGMII interfaces.
++
++properties:
++  compatible:
++    oneOf:
++      - enum:
++          - microchip,lan96455s-switch
++      - items:
++          - enum:
++              - microchip,lan96455f-switch
++              - microchip,lan96457f-switch
++              - microchip,lan96459f-switch
++              - microchip,lan96457s-switch
++              - microchip,lan96459s-switch
++          - const: microchip,lan96455s-switch
++
++  reg:
++    maxItems: 1
++
++$ref: dsa.yaml#
++
++patternProperties:
++  &quot;^(ethernet-)?ports$&quot;:
++    type: object
++    additionalProperties: true
++    patternProperties:
++      &quot;^(ethernet-)?port@[0-8]$&quot;:
++        type: object
++        description: Ethernet switch ports
++
++        $ref: dsa-port.yaml#
++
++        properties:
++          rx-internal-delay-ps:
++            const: 2000
++
++          tx-internal-delay-ps:
++            const: 2000
++
++        unevaluatedProperties: false
++
++oneOf:
++  - required:
++      - ports
++  - required:
++      - ethernet-ports
++
++required:
++  - compatible
++  - reg
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    ethernet-switch@4000 {
++        compatible = &quot;microchip,lan96459f-switch&quot;, &quot;microchip,lan96455s-switch&quot;;
++        reg = &lt;0x4000 0x244&gt;;
++
++        ethernet-ports {
++            #address-cells = &lt;1&gt;;
++            #size-cells = &lt;0&gt;;
++
++            port@0 {
++                reg = &lt;0&gt;;
++                phy-mode = &quot;gmii&quot;;
++                phy-handle = &lt;&amp;cuphy0&gt;;
++            };
++
++            port@1 {
++                reg = &lt;1&gt;;
++                phy-mode = &quot;gmii&quot;;
++                phy-handle = &lt;&amp;cuphy1&gt;;
++            };
++
++            port@2 {
++                reg = &lt;2&gt;;
++                phy-mode = &quot;gmii&quot;;
++                phy-handle = &lt;&amp;cuphy2&gt;;
++            };
++
++            port@3 {
++                reg = &lt;3&gt;;
++                phy-mode = &quot;gmii&quot;;
++                phy-handle = &lt;&amp;cuphy3&gt;;
++            };
++
++            port@7 {
++                reg = &lt;7&gt;;
++                phy-mode = &quot;rgmii&quot;;
++                ethernet = &lt;&amp;cpu_host_port&gt;;
++                rx-internal-delay-ps = &lt;2000&gt;;
++                tx-internal-delay-ps = &lt;2000&gt;;
++
++                fixed-link {
++                    speed = &lt;1000&gt;;
++                    full-duplex;
++                    pause;
++                };
++            };
++        };
++    };
++...
++
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 7ae698067c41..8232da1b3951 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -17278,6 +17278,7 @@ M:	Jens Emil Schulz &#xD8;stergaard &lt;jensemil.schulzostergaard@xxxxxxxxxxxxx&gt;
+ M:	UNGLinuxDriver@xxxxxxxxxxxxx
+ L:	netdev@xxxxxxxxxxxxxxx
+ S:	Maintained
++F:	Documentation/devicetree/bindings/net/dsa/microchip,lan96455s-switch.yaml
+ F:	include/linux/dsa/lan9645x.h
+ F:	net/dsa/tag_lan9645x.c
+ 
+
+-- 
+2.52.0
+
+
+
+
+</pre>
+<!--X-Body-of-Message-End-->
+<!--X-MsgBody-End-->
+<!--X-Follow-Ups-->
+</div>
+<hr>
+[<a href="msg6116889.html">Date Prev</a>][<a href="msg6116891.html">Date Next</a>][<a href="msg6133589.html">Thread Prev</a>][<a href="msg6127299.html">Thread Next</a>][<a href="mail19.html#6116890">Date Index</a>][<a href="thrd15.html#6116890">Thread Index</a>]
+<ul><li><strong>Follow-Ups</strong>:
+<ul>
+<li><strong><a name="6127299" href="msg6127299.html">Re: [PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings</a></strong>
+<ul><li><em>From:</em> Jakub Kicinski</li></ul></li>
+</ul></li></ul>
+<!--X-Follow-Ups-End-->
+<!--X-References-->
+<ul><li><strong>References</strong>:
+<ul>
+<li><strong><a name="6116893" href="msg6116893.html">[PATCH net-next v2 0/9] net: dsa: add DSA support for the LAN9645x switch chip family</a></strong>
+<ul><li><em>From:</em> Jens Emil Schulz &#xD8;stergaard</li></ul></li>
+</ul></li></ul>
+<!--X-References-End-->
+<!--X-BotPNI-->
+<ul>
+<li>Prev by Date:
+<strong><a href="msg6116889.html">Re: [PATCH 00/13] scsi: Core ALUA driver</a></strong>
+</li>
+<li>Next by Date:
+<strong><a href="msg6116891.html">Re: [net-next,v3,2/2] r8152: Add support for the RTL8157 hardware</a></strong>
+</li>
+<li>Previous by thread:
+<strong><a href="msg6133589.html">Re: [PATCH net-next v2 5/9] net: dsa: lan9645x: add bridge support</a></strong>
+</li>
+<li>Next by thread:
+<strong><a href="msg6127299.html">Re: [PATCH net-next v2 2/9] dt-bindings: net: lan9645x: add LAN9645X switch bindings</a></strong>
+</li>
+<li>Index(es):
+<ul>
+<li><a href="mail19.html#6116890"><strong>Date</strong></a></li>
+<li><a href="thrd15.html#6116890"><strong>Thread</strong></a></li>
+</ul>
+</li>
+</ul>
+
+<!--X-BotPNI-End-->
+<!--X-User-Footer-->
+<center>
+<a href=/lists/>[Index&nbsp;of&nbsp;Archives]</a>
+<p>
+<div id="lnks" style="display: none;">
+&nbsp;
+<a href=/lists/linux-spdx/>[SPDX]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/announce-kernel/>[Kernel&nbsp;Announce]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kexec/>[Kexec]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/live-patching/>[Kernel&nbsp;Live&nbsp;Patching]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kernel-hardening/>[Linux&nbsp;Kernel&nbsp;Hardening]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/newbies/>[Linux&nbsp;Kernel&nbsp;Newbies]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-driver-devel/>[Linux&nbsp;Driver&nbsp;Development]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/devicetree/>[Devicetree]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dmaengine/>[DMA&nbsp;Engine]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-efi/>[Linux&nbsp;EFI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/backports/>[Linux&nbsp;Backports]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-kbuild/>[Linux&nbsp;Kbuild]</a>
+&nbsp;
+&nbsp;
+<a href=/linux/fedora/fedora-kernel/>[Fedora&nbsp;Kernel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kernel-testers/>[Linux&nbsp;Kernel&nbsp;Testers]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-sh/>[Linux&nbsp;for&nbsp;SuperH]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-omap/>[Linux&nbsp;Omap]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-tape/>[Linux&nbsp;Tape]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-input/>[Linux&nbsp;Input]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-leds/>[Linux&nbsp;LEDS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-kernel-janitors/>[Linux&nbsp;Kernel&nbsp;Janitors]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-kernel-packagers/>[Linux&nbsp;Kernel&nbsp;Packagers]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-doc/>[Linux&nbsp;Doc]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-man/>[Linux&nbsp;Man&nbsp;Pages]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-api/>[Linux&nbsp;API]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-mm/>[Linux&nbsp;Memory&nbsp;Management]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/iommu/>[IO&nbsp;Memory&nbsp;Management&nbsp;Unit]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-modules/>[Linux&nbsp;Modules]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-standards/>[Linux&nbsp;Standards]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/netdev/>[Netdev]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/tcpinst-wg/>[TCP Instrumentation]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/git/>[Git]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-pci/>[Linux&nbsp;PCI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-gpio/>[Linux&nbsp;GPIO]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-spi/>[Linux&nbsp;SPI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-can/>Linux&nbsp;CAN&nbsp;Development]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-i2c/>[Linux&nbsp;I<sup>2</sup>C]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dmaengine/>[DMA&nbsp;Engine]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-rdma/>[Linux&nbsp;RDMA]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-numa/>[Linux&nbsp;NUMA]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/netfilter/>[Netfilter]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/netfilter-devel/>[Netfilter&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/selinux/>[SELinux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/bugtraq/>[Bugtraq]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/fio/>[FIO]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-perf-users/>[Linux&nbsp;Perf&nbsp;Users]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-serial/>[Linux&nbsp;Serial]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-ppp/>[Linux&nbsp;PPP]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-isdn/>[Linux&nbsp;ISDN]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-next/>[Linux&nbsp;Next]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/stable/>[Stable&nbsp;Kernel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/stable-commits/>[Kernel&nbsp;Stable&nbsp;Commits]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-tip-commits/>[Linux&nbsp;Tip&nbsp;Commits]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/mm-commits/>[Kernel&nbsp;MM&nbsp;Commits]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-security-module/>[Linux&nbsp;Security&nbsp;Module]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/autofs>[AutoFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-fsdevel/>[Filesystem&nbsp;Development]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ext3/>[Ext3&nbsp;Filesystem]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-bcache/>[Linux&nbsp;bcache]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-ext4/>[Ext4&nbsp;Filesystem]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-btrfs/>[Linux&nbsp;BTRFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ceph-devel/>[Linux&nbsp;CEPH&nbsp;Filesystem]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-xfs/>[Linux&nbsp;XFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/xfs/>[XFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-nfs/>[Linux&nbsp;NFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-cifs/>[Linux&nbsp;CIFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ecryptfs/>[Ecryptfs]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-nilfs/>[Linux&nbsp;NILFS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-cachefs/>[Linux&nbsp;Cachefs]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/reiserfs-devel/>[Reiser&nbsp;FS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-initramfs/>[Initramfs]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-fbdev/>[Linux&nbsp;FB&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-opengl/>[Linux&nbsp;OpenGL]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/intel-gfx/>[Intel&nbsp;GFX]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dri-devel/>[DRI&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/fastboot/>[Fastboot]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-rt-users/>[Linux&nbsp;RT&nbsp;Users]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/rt-stable/>[Linux&nbsp;RT&nbsp;Stable]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ecos/>[eCos]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/corosync/>[Corosync]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/cluster/>[Linux&nbsp;Clusters]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/lvs-devel/>[LVS&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/hotplug/>[Hot&nbsp;Plug]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-virtualization/>[Linux&nbsp;Virtualization]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kvm/>[KVM]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kvm-ppc/>[KVM&nbsp;PPC]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kvm-ia64/>[KVM&nbsp;ia64]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-containers/>[Linux&nbsp;Containers]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-hexagon/>[Linux&nbsp;Hexagon]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/cgroups/>[Linux&nbsp;Cgroups]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/util-linux-ng/>[Util&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-wireless/>[Wireless]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ath6kl/>[ATH6KL]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-wimax/>[WiMAX]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-bluetooth/>[Linux&nbsp;Bluetooth]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/bluez-devel/>[Bluez&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-ethernet-bridging/>[Ethernet&nbsp;Bridging]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-embedded/>[Embedded&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/u-boot-v2/>[Barebox]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-mmc/>[Linux&nbsp;MMC]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-iio/>[Linux&nbsp;IIO]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-sparse/>[Sparse]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/smatch/>[Smatch]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/trinity/>[Trinity&nbsp;Fuzzer&nbsp;Tool]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-arch/>[Linux&nbsp;Arch]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/platform-driver-x86/>[x86&nbsp;Platform&nbsp;Driver]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-acpi/>[Linux&nbsp;ACPI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ibm-acpi-devel/>[Linux&nbsp;IBM&nbsp;ACPI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/Remote&nbsp;Processor/>[Remote&nbsp;Processor]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/lm-sensors/>[LM&nbsp;Sensors]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/cpufreq/>[CPU&nbsp;Freq]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-pm/>[Linux&nbsp;Power&nbsp;Management]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linmodem/>[Linmodems]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dccp/>[Linux&nbsp;DCCP]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-sctp/>[Linux&nbsp;SCTP]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/alsa-devel/>[ALSA&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-usb/>[Linux&nbsp;USB]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-parisc/>[Linux&nbsp;PA&nbsp;RISC]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-soc/>[Linux&nbsp;SOC]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-samsung-soc/>[Linux&nbsp;Samsung&nbsp;SOC]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-mips/>[MIPS&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-s390/>[IBM&nbsp;S/390&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/arm/>[ARM&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/arm-kernel/>[ARM&nbsp;Kernel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-arm-msm/>[ARM&nbsp;MSM]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-tegra/>[Tegra&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/sparclinux/>[Sparc&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/security/>[Linux&nbsp;Security]</a>
+&nbsp;
+&nbsp;
+<a href=/linux/fedora/linux-sound/>[Linux&nbsp;Sound]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-media/>[Linux&nbsp;Media]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/vfl/>[Video&nbsp;4&nbsp;Linux]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/irda-users/>[Linux&nbsp;IRDA&nbsp;Users]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/blinux/>[Linux&nbsp;for&nbsp;the&nbsp;blind]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/raid/>[Linux&nbsp;RAID]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/ataraid/>[Linux&nbsp;ATA&nbsp;RAID]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dm-devel/>[Device&nbsp;Mapper]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-scsi/>[Linux&nbsp;SCSI]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/target-devel/>[SCSI&nbsp;Target&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-stgt/>[Linux&nbsp;SCSI&nbsp;Target&nbsp;Infrastructure]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-ide/>[Linux&nbsp;IDE]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-smp/>[Linux&nbsp;SMP]</a>
+&nbsp;
+&nbsp;
+<a href=/linux/fedora/axp/>[Linux&nbsp;AXP]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-alpha/>[Linux&nbsp;Alpha]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-ia64/>[Linux&nbsp;ia64]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-metag/>[Linux&nbsp;MetaG]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-m68k/>[Linux&nbsp;M68K]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-8086/>[Linux&nbsp;8086]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-x86_64/>[Linux&nbsp;x86_64]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-config/>[Linux&nbsp;Config]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-apps/>[Linux&nbsp;Apps]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-msdos/>[Linux&nbsp;MSDOS]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-x25/>[Linux&nbsp;X.25]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-crypto/>[Linux&nbsp;Crypto]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dm-crypt/>[DM&nbsp;Crypt]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-trace/>[Linux&nbsp;Trace&nbsp;Users]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-btrace/>[Linux&nbsp;Btrace]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-watchdog/>[Linux&nbsp;Watchdog]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/utrace-devel/>[Utrace&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-c-programming/>[Linux&nbsp;C&nbsp;Programming]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-assembly/>[Linux&nbsp;Assembly]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dash/>[Dash]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/dwarves/>[DWARVES]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/hail-devel/>[Hail&nbsp;Devel]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/kdb/>[Linux&nbsp;Kernel&nbsp;Debugger]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/linux-gcc/>[Linux&nbsp;gcc]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/gcchelp/>[Gcc&nbsp;Help]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/xorg/>[X.Org]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/irqbalance/>[IRQ&nbsp;Balanace]</a>
+</font>
+</div>
+<p>
+<div id="abtn"><input type="button" onclick="return toggleMe('lnks')" value="Show more archives"></div>
+<p>
+<table width=100%>
+<tr>
+<td align=left>&nbsp;</td>
+<td align=right><a href=/linux><img src=/button_01.gif border=0 alt="Powered by Linux"></a></td>
+</tr>
+</table>
+<br>
+<p>
+<a href=/lists/kernel/old/>[<b>Older&nbsp;Kernel&nbsp;Discussion<b>]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/arm-kernel/>[ARM&nbsp;Kernel]</a>
+&nbsp;
+&nbsp;
+<a href=https://yosemitenews.info/>[Yosemite&nbsp;National&nbsp;Park&nbsp;Forum]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/gimp/>[Gimp]</a>
+&nbsp;
+&nbsp;
+<a href=/lists/>[Index&nbsp;of&nbsp;Other&nbsp;Archives]</a>
+</center>
+<p>
+<hr>
+<!--X-User-Footer-End-->
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-760190-1', 'auto');
+  ga('send', 'pageview');
+</script>
+</body>
+</html>

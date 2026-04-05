@@ -80,7 +80,7 @@ int32_t  USER_PHY_RegisterBusIO(user_phy_Object_t *pObj, user_phy_IOCtx_t *ioctx
 
 int32_t USER_PHY_Init(user_phy_Object_t *pObj)
 {
-  uint32_t regvalue = 0, addr = 0;
+  uint32_t regvalue = 0;
   int32_t status = USER_PHY_STATUS_OK;
 
   /* USER CODE BEGIN PHY_INIT_0 */
@@ -95,31 +95,14 @@ int32_t USER_PHY_Init(user_phy_Object_t *pObj)
       pObj->IO.Init();
     }
 
-    /* for later check */
-    pObj->DevAddr = USER_PHY_MAX_DEV_ADDR + 1;
-
-    /* Get the device address from special mode register */
-    for(addr = 0; addr <= USER_PHY_MAX_DEV_ADDR; addr ++)
+    /*
+     * Managed LAN9645 profile uses deterministic logical context.
+     * Bind USER_PHY to logical address 0 and verify access once.
+     */
+    pObj->DevAddr = 0U;
+    if (pObj->IO.ReadReg(pObj->DevAddr, USER_PHY_PHYI1R, &regvalue) < 0)
     {
-      if(pObj->IO.ReadReg(addr, USER_PHY_PHYI1R, &regvalue) < 0)
-      {
-        status = USER_PHY_STATUS_READ_ERROR;
-        /* Can't read from this device address
-           continue with next address */
-        continue;
-      }
-
-      if(regvalue != USER_PHY_PHYI1R_OUI_3_18)
-      {
-        pObj->DevAddr = addr;
-        status = USER_PHY_STATUS_OK;
-        break;
-      }
-    }
-
-    if(pObj->DevAddr > USER_PHY_MAX_DEV_ADDR)
-    {
-      status = USER_PHY_STATUS_ADDRESS_ERROR;
+      status = USER_PHY_STATUS_READ_ERROR;
     }
 
     /* if device address is matched */

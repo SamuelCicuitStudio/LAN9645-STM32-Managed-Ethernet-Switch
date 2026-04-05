@@ -29,6 +29,11 @@
 #include "lwip/ethip6.h"
 #include "ethernetif.h"
 /* USER CODE BEGIN Include for User BSP */
+#include "diag/diag_core.h"
+#include "diag/diag_router.h"
+#include "eth_custom_phy_interface.h"
+#include "lan9645/lan9645_runtime.h"
+#include "lan9645/lan9645_user_phy_adapter.h"
 
 /* USER CODE END Include for User BSP */
 #include <string.h>
@@ -126,6 +131,12 @@ __attribute__((section(".Rx_PoolSection"))) extern u8_t memp_memory_RX_POOL_base
 #endif
 
 /* USER CODE BEGIN 2 */
+static user_phy_Object_t s_user_phy_obj;
+static user_phy_IOCtx_t s_user_phy_io;
+static lan9645_user_phy_adapter_t s_user_phy_adapter;
+static uint8_t s_user_phy_ready = 0u;
+static uint8_t s_eth_started = 0u;
+static int32_t s_last_phy_status = 0x7FFFFFFF;
 
 /* USER CODE END 2 */
 
@@ -143,6 +154,66 @@ ETH_TxPacketConfig TxConfig;
 void pbuf_free_custom(struct pbuf *p);
 
 /* USER CODE BEGIN 4 */
+static void ethernetif_report_phy_error(int32_t phy_status)
+{
+  diag_event_t evt;
+
+  if (phy_status == s_last_phy_status) {
+    return;
+  }
+  s_last_phy_status = phy_status;
+
+  if (phy_status >= 0) {
+    return;
+  }
+
+  evt.id = DIAG_EVT_LAN_SPI_TIMEOUT;
+  evt.severity = DIAG_SEV_ERR;
+  evt.dev = 8u;
+  evt.reg = 0u;
+  evt.arg0 = (uint32_t)phy_status;
+  evt.arg1 = 0u;
+  (void)diag_core_report(&evt);
+  (void)diag_router_write_event(&evt);
+}
+
+static int32_t ethernetif_user_phy_init_once(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if (s_user_phy_ready != 0u) {
+    return USER_PHY_STATUS_OK;
+  }
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return USER_PHY_STATUS_ERROR;
+  }
+
+  st = lan9645_user_phy_adapter_init(&s_user_phy_adapter, core);
+  if (st != APP_OK) {
+    return USER_PHY_STATUS_ERROR;
+  }
+  st = lan9645_user_phy_adapter_bind(&s_user_phy_adapter);
+  if (st != APP_OK) {
+    return USER_PHY_STATUS_ERROR;
+  }
+
+  memset(&s_user_phy_obj, 0, sizeof(s_user_phy_obj));
+  memset(&s_user_phy_io, 0, sizeof(s_user_phy_io));
+  s_user_phy_io.ReadReg = lan9645_user_phy_adapter_io_read_reg;
+  s_user_phy_io.WriteReg = lan9645_user_phy_adapter_io_write_reg;
+  s_user_phy_io.GetTick = lan9645_user_phy_adapter_io_get_tick;
+
+  if (USER_PHY_RegisterBusIO(&s_user_phy_obj, &s_user_phy_io) != USER_PHY_STATUS_OK) {
+    return USER_PHY_STATUS_ERROR;
+  }
+  if (USER_PHY_Init(&s_user_phy_obj) != USER_PHY_STATUS_OK) {
+    return USER_PHY_STATUS_ERROR;
+  }
+
+  s_user_phy_ready = 1u;
+  return USER_PHY_STATUS_OK;
+}
 
 /* USER CODE END 4 */
 
@@ -458,7 +529,84 @@ u32_t sys_now(void)
   */
 void ethernet_link_check_state(struct netif *netif)
 {
+  ETH_MACConfigTypeDef macconf = {0};
+  uint32_t speed = ETH_SPEED_100M;
+  uint32_t duplex = ETH_FULLDUPLEX_MODE;
+  int32_t phy_state = USER_PHY_STATUS_LINK_DOWN;
 
+  if (netif == NULL) {
+    return;
+  }
+
+  if (ethernetif_user_phy_init_once() != USER_PHY_STATUS_OK) {
+    if (netif_is_link_up(netif) != 0) {
+      (void)HAL_ETH_Stop(&heth);
+      s_eth_started = 0u;
+      netif_set_link_down(netif);
+    }
+    return;
+  }
+
+  phy_state = USER_PHY_GetLinkState(&s_user_phy_obj);
+  ethernetif_report_phy_error(phy_state);
+
+  if (phy_state == USER_PHY_STATUS_LINK_DOWN || phy_state == USER_PHY_STATUS_AUTONEGO_NOTDONE) {
+    if (netif_is_link_up(netif) != 0) {
+      (void)HAL_ETH_Stop(&heth);
+      s_eth_started = 0u;
+      netif_set_link_down(netif);
+    }
+    return;
+  }
+  if (phy_state < 0) {
+    if (netif_is_link_up(netif) != 0) {
+      (void)HAL_ETH_Stop(&heth);
+      s_eth_started = 0u;
+      netif_set_link_down(netif);
+    }
+    return;
+  }
+
+  if (phy_state == USER_PHY_STATUS_100MBITS_FULLDUPLEX) {
+    speed = ETH_SPEED_100M;
+    duplex = ETH_FULLDUPLEX_MODE;
+  } else if (phy_state == USER_PHY_STATUS_100MBITS_HALFDUPLEX) {
+    speed = ETH_SPEED_100M;
+    duplex = ETH_HALFDUPLEX_MODE;
+  } else if (phy_state == USER_PHY_STATUS_10MBITS_FULLDUPLEX) {
+    speed = ETH_SPEED_10M;
+    duplex = ETH_FULLDUPLEX_MODE;
+  } else if (phy_state == USER_PHY_STATUS_10MBITS_HALFDUPLEX) {
+    speed = ETH_SPEED_10M;
+    duplex = ETH_HALFDUPLEX_MODE;
+  } else {
+    if (netif_is_link_up(netif) != 0) {
+      (void)HAL_ETH_Stop(&heth);
+      s_eth_started = 0u;
+      netif_set_link_down(netif);
+    }
+    return;
+  }
+
+  if (HAL_ETH_GetMACConfig(&heth, &macconf) != HAL_OK) {
+    return;
+  }
+  macconf.Speed = speed;
+  macconf.DuplexMode = duplex;
+  if (HAL_ETH_SetMACConfig(&heth, &macconf) != HAL_OK) {
+    return;
+  }
+
+  if (s_eth_started == 0u) {
+    if (HAL_ETH_Start(&heth) != HAL_OK) {
+      return;
+    }
+    s_eth_started = 1u;
+  }
+
+  if (netif_is_link_up(netif) == 0) {
+    netif_set_link_up(netif);
+  }
 }
 
 void HAL_ETH_RxAllocateCallback(uint8_t **buff)

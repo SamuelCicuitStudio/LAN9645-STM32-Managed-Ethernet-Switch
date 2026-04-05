@@ -210,3 +210,24 @@ Mandatory integration rule:
 - [ ] Error mapping propagates to CLI status/error reporting path.
 - [ ] Per-port context switching (`port0`/`port1`) behaves deterministically.
 
+---
+
+## 12) Current Implementation Snapshot (April 5, 2026)
+
+Implemented:
+- `firmware/Core/Inc/lan9645/lan9645_user_phy_adapter.h`
+- `firmware/Core/Src/lan9645/lan9645_user_phy_adapter.c`
+- `firmware/Core/Inc/lan9645/lan9645_runtime.h`
+- `firmware/Core/Src/lan9645/lan9645_runtime.c`
+- `firmware/LWIP/Target/ethernetif.c` link-state path bound to USER_PHY + adapter
+
+Implemented behavior in adapter:
+- virtual Clause-22 register model for `BCR`, `BSR`, `PHYI1R`, `PHYI2R`, `ANAR`, `ANLPAR`
+- strict 10/100 advertisement model
+- per-port context (`port0`, `port1`) with explicit active-port selection
+- callback-friendly IO wrappers for generated `USER_PHY` bus hooks
+- lazy USER_PHY initialization in `ethernet_link_check_state()` after LAN core runtime context is available
+
+Current limitation to validate:
+- live link sampling currently uses `lan9645_core_get_rgmii_link()` mapping by logical port index as a bring-up baseline.
+- this mapping is provisional until target-base and status-path validation is completed on hardware.

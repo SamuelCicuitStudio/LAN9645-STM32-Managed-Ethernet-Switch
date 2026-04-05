@@ -1,0 +1,67 @@
+#include "lan9645/lan9645_regs.h"
+
+const lan9645_reg_desc_t LAN9645_REG_ANA_AUTOAGE =
+  LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 27136u, 0u, 1u, 284u, 44u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_ANA_PGID =
+  LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 27648u, 0u, 90u, 8u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_ANA_PGID_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 27648u, 0u, 90u, 8u, 4u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_ANA_AGGR_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 29248u, 0u, 1u, 552u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_CHIP_TOP_CUPHY_PORT_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_CHIP_TOP, 0u, 1u, 12u, 0u, 1u, 64u, 20u, 0u, 5u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_CHIP_TOP_CUPHY_LED_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_CHIP_TOP, 0u, 1u, 12u, 0u, 1u, 64u, 40u, 0u, 5u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_DEV_CLOCK_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_DEV, 0u, 9u, 0u, 0u, 1u, 20u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_DEV_MAC_ENA_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_DEV, 0u, 9u, 20u, 0u, 1u, 44u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_DEV_MAC_MODE_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_DEV, 0u, 9u, 20u, 0u, 1u, 44u, 4u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_DEV_PCS1G_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_DEV, 0u, 9u, 64u, 0u, 1u, 68u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_DEV_PCS1G_SD_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_DEV, 0u, 9u, 64u, 0u, 1u, 68u, 8u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_GCB_FEAT_DISABLE =
+  LAN9645_REG_DESC(LAN9645_TARGET_GCB, 0u, 1u, 0u, 0u, 1u, 28u, 20u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_HSIO_HW_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_HSIO, 0u, 1u, 72u, 0u, 1u, 44u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_HSIO_RGMII_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_HSIO, 0u, 1u, 72u, 0u, 1u, 44u, 12u, 0u, 2u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_QSYS_SW_PORT_MODE =
+  LAN9645_REG_DESC(LAN9645_TARGET_QSYS, 0u, 1u, 14336u, 0u, 1u, 240u, 88u, 0u, 10u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_QSYS_EXT_CPU_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_QSYS, 0u, 1u, 14336u, 0u, 1u, 240u, 220u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_RESET_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 4160u, 0u, 1u, 184u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_PORT_MODE =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 4160u, 0u, 1u, 184u, 48u, 0u, 11u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_STAT_CFG =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 4160u, 0u, 1u, 184u, 132u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_SW_STATUS =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 4160u, 0u, 1u, 184u, 136u, 0u, 10u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_CNT =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 0u, 0u, 896u, 4u, 0u, 0u, 1u, 4u);
+
+const lan9645_reg_desc_t LAN9645_REG_SYS_RAM_INIT =
+  LAN9645_REG_DESC(LAN9645_TARGET_SYS, 0u, 1u, 4492u, 0u, 1u, 4u, 0u, 0u, 1u, 4u);

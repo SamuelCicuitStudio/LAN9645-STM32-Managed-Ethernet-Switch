@@ -23,6 +23,19 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "diag/diag_core.h"
+#include "diag/diag_router.h"
+#include "app/app_orchestrator.h"
+#include "cli/cli_core.h"
+#include "cli/cli_ingress.h"
+#include "lan9645/lan9645_core.h"
+#include "lan9645/lan9645_profile_managed_rmii1.h"
+#include "lan9645/lan9645_reg.h"
+#include "lan9645/lan9645_runtime.h"
+#include "lan9645/lan9645_spi.h"
+#include "lan9645/lan9645_target_map.h"
+#include "time/time_service.h"
+#include "ui/ui_service.h"
 
 /* USER CODE END Includes */
 
@@ -54,6 +67,9 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart4;
 
 /* USER CODE BEGIN PV */
+static lan9645_spi_t g_lan_spi;
+static lan9645_reg_t g_lan_reg;
+static lan9645_core_t g_lan_core;
 
 /* USER CODE END PV */
 
@@ -123,6 +139,112 @@ int main(void)
   MX_LWIP_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+  if (time_service_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (diag_core_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (diag_router_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (app_orchestrator_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  (void)app_orchestrator_set_state(APP_STATE_BOOT);
+  if (ui_service_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (cli_core_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (cli_ingress_init() != APP_OK)
+  {
+    Error_Handler();
+  }
+  (void)ui_service_set_status(0u);
+  (void)ui_service_set_error(0u);
+  (void)ui_service_set_run(0u);
+  if (lan9645_spi_init(&g_lan_spi, &hspi1, SPI_NSS_GPIO_Port, SPI_NSS_Pin) != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (lan9645_reg_init(&g_lan_reg, &g_lan_spi) != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (lan9645_target_map_apply_board_defaults(&g_lan_reg) != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (lan9645_core_init(&g_lan_core, &g_lan_reg, LAN_RST_GPIO_Port, LAN_RST_Pin) != APP_OK)
+  {
+    Error_Handler();
+  }
+  lan9645_runtime_set_core(&g_lan_core);
+  (void)app_orchestrator_set_state(APP_STATE_LAN_RESET);
+  if (lan9645_core_hw_reset(&g_lan_core, 2u, 20u) != APP_OK)
+  {
+    Error_Handler();
+  }
+  (void)app_orchestrator_set_state(APP_STATE_LAN_SPI_TEST);
+  {
+    lan9645_profile_result_t lan_profile = {0};
+    (void)app_orchestrator_set_state(APP_STATE_LAN_PROFILE_APPLY);
+    app_status_t lan_st = lan9645_profile_managed_rmii1_apply(&g_lan_core, &lan_profile);
+    if (lan_st != APP_OK)
+    {
+      diag_event_t lan_evt;
+      lan_evt.id = DIAG_EVT_LAN_SPI_TIMEOUT;
+      lan_evt.severity = DIAG_SEV_ERR;
+      lan_evt.dev = 0u;
+      lan_evt.reg = 0u;
+      lan_evt.arg0 = (uint32_t)lan_st;
+      lan_evt.arg1 = 0u;
+      (void)diag_core_report(&lan_evt);
+      (void)diag_router_write_event(&lan_evt);
+      (void)app_orchestrator_set_fault((uint32_t)lan_st);
+      (void)ui_service_set_error(1u);
+      Error_Handler();
+    }
+    else
+    {
+      diag_event_t lan_evt;
+      lan_evt.id = DIAG_EVT_LAN_SPI_IFSTAT;
+      lan_evt.severity = DIAG_SEV_INFO;
+      lan_evt.dev = 0u;
+      lan_evt.reg = 0u;
+      lan_evt.arg0 = lan_profile.feat_disable;
+      lan_evt.arg1 = 0u;
+      (void)diag_core_report(&lan_evt);
+      (void)diag_router_write_event(&lan_evt);
+      (void)app_orchestrator_set_state(APP_STATE_NET_READY);
+      (void)ui_service_set_status(1u);
+      (void)ui_service_set_error(0u);
+      (void)ui_service_set_run(1u);
+    }
+  }
+  (void)diag_router_set_uart_ready(1u);
+  (void)diag_router_poll();
+  {
+    diag_event_t boot_evt;
+    boot_evt.id = DIAG_EVT_BOOT;
+    boot_evt.severity = DIAG_SEV_INFO;
+    boot_evt.dev = 0u;
+    boot_evt.reg = 0u;
+    boot_evt.arg0 = 0u;
+    boot_evt.arg1 = 0u;
+    (void)diag_core_report(&boot_evt);
+    (void)diag_router_write_event(&boot_evt);
+  }
+  (void)app_orchestrator_set_state(APP_STATE_RUN);
+  (void)cli_core_exec_line("status all");
 
   /* USER CODE END 2 */
 
@@ -133,6 +255,22 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    MX_LWIP_Process();
+    (void)diag_router_poll();
+    (void)cli_core_poll();
+    {
+      uint8_t rx = 0u;
+      while (HAL_UART_Receive(&huart4, &rx, 1u, 0u) == HAL_OK)
+      {
+        (void)cli_ingress_feed_byte(rx, APP_CH_UART4);
+      }
+    }
+    (void)cli_ingress_poll();
+    (void)ui_service_poll();
+    if (ui_service_take_button_event() != 0u)
+    {
+      (void)cli_core_exec_line("status all");
+    }
   }
   /* USER CODE END 3 */
 }
@@ -318,7 +456,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -416,7 +554,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SPI_NSS_GPIO_Port, SPI_NSS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI_NSS_GPIO_Port, SPI_NSS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, HEART_Pin|STATUS_Pin|ERR_Pin, GPIO_PIN_RESET);
