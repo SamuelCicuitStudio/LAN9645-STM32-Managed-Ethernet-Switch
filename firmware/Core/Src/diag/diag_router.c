@@ -1,5 +1,10 @@
 #include "diag/diag_router.h"
 
+/**
+ * @file diag_router.c
+ * @brief Serial diagnostics router for USB CDC and UART4.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
@@ -20,6 +25,13 @@ static diag_router_state_t s_state = {
   0u
 };
 
+/**
+ * @brief Converts an event ID into a stable printable token.
+ *
+ * @param[in] id Event identifier to convert.
+ *
+ * @return Constant string representation.
+ */
 static const char *diag_router_evt_to_str(diag_event_id_t id)
 {
   switch (id) {
@@ -38,6 +50,13 @@ static const char *diag_router_evt_to_str(diag_event_id_t id)
   }
 }
 
+/**
+ * @brief Converts a severity into a short printable label.
+ *
+ * @param[in] sev Severity to convert.
+ *
+ * @return Constant string representation.
+ */
 static const char *diag_router_sev_to_str(diag_severity_t sev)
 {
   switch (sev) {
@@ -49,6 +68,14 @@ static const char *diag_router_sev_to_str(diag_severity_t sev)
   }
 }
 
+/**
+ * @brief Sends one text buffer over USB CDC.
+ *
+ * @param[in] line Text buffer to transmit.
+ * @param[in] len Buffer length in bytes.
+ *
+ * @return @ref APP_OK on success.
+ */
 static app_status_t diag_router_tx_usb(const char *line, uint16_t len)
 {
   uint8_t usb_st = 0u;
@@ -68,6 +95,14 @@ static app_status_t diag_router_tx_usb(const char *line, uint16_t len)
   return APP_EIO;
 }
 
+/**
+ * @brief Sends one text buffer over UART4.
+ *
+ * @param[in] line Text buffer to transmit.
+ * @param[in] len Buffer length in bytes.
+ *
+ * @return @ref APP_OK on success.
+ */
 static app_status_t diag_router_tx_uart(const char *line, uint16_t len)
 {
   if ((line == NULL) || (len == 0u)) {
@@ -84,6 +119,14 @@ static app_status_t diag_router_tx_uart(const char *line, uint16_t len)
   return APP_OK;
 }
 
+/**
+ * @brief Routes one text buffer according to the current owner and mirroring policy.
+ *
+ * @param[in] line Text buffer to route.
+ * @param[in] len Buffer length in bytes.
+ *
+ * @return @ref APP_OK on success.
+ */
 static app_status_t diag_router_tx_by_owner(const char *line, uint16_t len)
 {
   app_status_t st = APP_ESTATE;
@@ -123,6 +166,11 @@ static app_status_t diag_router_tx_by_owner(const char *line, uint16_t len)
   return st;
 }
 
+/**
+ * @brief Initializes the diagnostics router state.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_init(void)
 {
   if (s_initialized != 0u) {
@@ -139,6 +187,13 @@ app_status_t diag_router_init(void)
   return APP_OK;
 }
 
+/**
+ * @brief Selects the preferred console that should receive diagnostics output.
+ *
+ * @param[in] owner Requested owner.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_set_owner(app_owner_t owner)
 {
   if ((owner != APP_OWNER_NONE) && (owner != APP_OWNER_USB) && (owner != APP_OWNER_UART4)) {
@@ -152,6 +207,11 @@ app_status_t diag_router_set_owner(app_owner_t owner)
   return APP_OK;
 }
 
+/**
+ * @brief Returns the currently selected routing owner.
+ *
+ * @return Current owner.
+ */
 app_owner_t diag_router_get_owner(void)
 {
   if (s_initialized == 0u) {
@@ -160,6 +220,13 @@ app_owner_t diag_router_get_owner(void)
   return s_state.owner;
 }
 
+/**
+ * @brief Updates USB readiness seen by the router.
+ *
+ * @param[in] ready Set to 1 when USB CDC can transmit.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_set_usb_ready(uint8_t ready)
 {
   if (s_initialized == 0u) {
@@ -169,6 +236,13 @@ app_status_t diag_router_set_usb_ready(uint8_t ready)
   return APP_OK;
 }
 
+/**
+ * @brief Updates UART readiness seen by the router.
+ *
+ * @param[in] ready Set to 1 when UART4 can transmit.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_set_uart_ready(uint8_t ready)
 {
   if (s_initialized == 0u) {
@@ -178,6 +252,13 @@ app_status_t diag_router_set_uart_ready(uint8_t ready)
   return APP_OK;
 }
 
+/**
+ * @brief Writes a plain text line through the current route.
+ *
+ * @param[in] line Zero-terminated text line.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_write_text(const char *line)
 {
   size_t line_len = 0u;
@@ -200,6 +281,13 @@ app_status_t diag_router_write_text(const char *line)
   return diag_router_tx_by_owner(line, (uint16_t)line_len);
 }
 
+/**
+ * @brief Formats and prints one diagnostics event.
+ *
+ * @param[in] evt Event to print.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_write_event(const diag_event_t *evt)
 {
   app_time_t now = {0};
@@ -244,6 +332,13 @@ app_status_t diag_router_write_event(const diag_event_t *evt)
   return diag_router_write_text(line);
 }
 
+/**
+ * @brief Enables or disables console bridging.
+ *
+ * @param[in] on Set to 1 to enable bridging.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_set_bridge(uint8_t on)
 {
   if (s_initialized == 0u) {
@@ -253,6 +348,13 @@ app_status_t diag_router_set_bridge(uint8_t on)
   return APP_OK;
 }
 
+/**
+ * @brief Returns a snapshot of the current routing state.
+ *
+ * @param[out] out Destination state snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_get_state(diag_router_state_t *out)
 {
   if (out == NULL) {
@@ -266,6 +368,11 @@ app_status_t diag_router_get_state(diag_router_state_t *out)
   return APP_OK;
 }
 
+/**
+ * @brief Refreshes transport readiness and releases invalid owners when needed.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_router_poll(void)
 {
   if (s_initialized == 0u) {

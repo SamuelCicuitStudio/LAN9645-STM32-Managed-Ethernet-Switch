@@ -1,11 +1,21 @@
 #include "lan9645/lan9645_runtime.h"
 
+/**
+ * @file lan9645_runtime.c
+ * @brief Shared IRQ-line runtime tracking for the LAN9645 integration.
+ */
+
 static lan9645_core_t *s_lan_core = NULL;
 static volatile uint32_t s_irq_edges_pending = 0u;
 static lan9645_irq_state_t s_irq_state = {0};
 
 #define LAN9645_IRQ_TIMEOUT_DEFAULT_MS (200u)
 
+/**
+ * @brief Enters a short critical section used by the IRQ monitor.
+ *
+ * @return Previous PRIMASK state.
+ */
 static uint32_t lan9645_runtime_irq_lock(void)
 {
   uint32_t primask = __get_PRIMASK();
@@ -13,6 +23,11 @@ static uint32_t lan9645_runtime_irq_lock(void)
   return primask;
 }
 
+/**
+ * @brief Restores the interrupt state saved by @ref lan9645_runtime_irq_lock.
+ *
+ * @param[in] primask Saved PRIMASK value.
+ */
 static void lan9645_runtime_irq_unlock(uint32_t primask)
 {
   if (primask == 0u) {
@@ -20,16 +35,33 @@ static void lan9645_runtime_irq_unlock(uint32_t primask)
   }
 }
 
+/**
+ * @brief Stores the global LAN9645 core pointer used by runtime helpers.
+ *
+ * @param[in] core Core pointer to store.
+ */
 void lan9645_runtime_set_core(lan9645_core_t *core)
 {
   s_lan_core = core;
 }
 
+/**
+ * @brief Returns the global LAN9645 core pointer.
+ *
+ * @return Current core pointer, or NULL when not installed.
+ */
 lan9645_core_t *lan9645_runtime_get_core(void)
 {
   return s_lan_core;
 }
 
+/**
+ * @brief Initializes IRQ-line monitoring state.
+ *
+ * @param[in] stuck_timeout_ms Timeout used to flag a stuck IRQ line.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_runtime_irq_init(uint32_t stuck_timeout_ms)
 {
   uint32_t lock = lan9645_runtime_irq_lock();
@@ -47,11 +79,23 @@ app_status_t lan9645_runtime_irq_init(uint32_t stuck_timeout_ms)
   return APP_OK;
 }
 
+/**
+ * @brief Records one EXTI edge on the LAN IRQ line.
+ */
 void lan9645_runtime_irq_on_exti(void)
 {
   s_irq_edges_pending++;
 }
 
+/**
+ * @brief Updates IRQ state from a sampled GPIO level and pending EXTI edges.
+ *
+ * @param[in] line_high_sample Current sampled IRQ line level.
+ * @param[in] now_ms Current tick in milliseconds.
+ * @param[out] stuck_evt Optional one-shot flag set when a stuck condition appears.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_runtime_irq_poll(uint8_t line_high_sample, uint32_t now_ms, uint8_t *stuck_evt)
 {
   uint32_t pending = 0u;
@@ -97,6 +141,13 @@ app_status_t lan9645_runtime_irq_poll(uint8_t line_high_sample, uint32_t now_ms,
   return APP_OK;
 }
 
+/**
+ * @brief Returns a snapshot of the current IRQ-line monitor state.
+ *
+ * @param[out] out Destination snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_runtime_irq_get(lan9645_irq_state_t *out)
 {
   uint32_t lock = 0u;
@@ -114,6 +165,11 @@ app_status_t lan9645_runtime_irq_get(lan9645_irq_state_t *out)
   return APP_OK;
 }
 
+/**
+ * @brief Clears IRQ counters and re-arms stuck-line monitoring.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_runtime_irq_clear(void)
 {
   uint32_t timeout = LAN9645_IRQ_TIMEOUT_DEFAULT_MS;

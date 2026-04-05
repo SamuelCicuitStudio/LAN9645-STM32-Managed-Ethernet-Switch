@@ -1,5 +1,10 @@
 #include "time/time_service.h"
 
+/**
+ * @file time_service.c
+ * @brief RTC and uptime helper used by diagnostics, CLI, and status reporting.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
@@ -13,6 +18,14 @@ extern RTC_HandleTypeDef hrtc;
 static uint8_t s_initialized = 0u;
 static uint8_t s_rtc_valid = 0u;
 
+/**
+ * @brief Performs a lightweight validity check on RTC calendar fields.
+ *
+ * @param[in] d RTC date structure to validate.
+ * @param[in] t RTC time structure to validate.
+ *
+ * @return 1 when the timestamp looks usable, otherwise 0.
+ */
 static uint8_t time_service_is_calendar_plausible(const RTC_DateTypeDef *d, const RTC_TimeTypeDef *t)
 {
   if ((d == NULL) || (t == NULL)) {
@@ -38,6 +51,11 @@ static uint8_t time_service_is_calendar_plausible(const RTC_DateTypeDef *d, cons
   return 1u;
 }
 
+/**
+ * @brief Initializes cached RTC validity state.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t time_service_init(void)
 {
   if (s_initialized != 0u) {
@@ -56,6 +74,13 @@ app_status_t time_service_init(void)
   return APP_OK;
 }
 
+/**
+ * @brief Reads uptime and, when available, a valid RTC timestamp.
+ *
+ * @param[out] out Destination time snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t time_service_now(app_time_t *out)
 {
   RTC_TimeTypeDef sTime = {0};
@@ -100,6 +125,15 @@ app_status_t time_service_now(app_time_t *out)
   return APP_OK;
 }
 
+/**
+ * @brief Formats a time snapshot for console and diagnostics output.
+ *
+ * @param[in] t Time snapshot to print.
+ * @param[out] buf Output string buffer.
+ * @param[in] len Size of @p buf in bytes.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t time_service_format(const app_time_t *t, char *buf, uint32_t len)
 {
   int n = 0;

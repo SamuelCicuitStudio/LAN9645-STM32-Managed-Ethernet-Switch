@@ -31,6 +31,7 @@
 #include <string.h>
 
 /* USER CODE BEGIN 0 */
+/** @brief Formats an IPv4 address into a dotted-quad string for CLI output. */
 static void lwip_format_ipv4(const ip4_addr_t *addr, char *dst, size_t dst_len)
 {
   if ((addr == NULL) || (dst == NULL) || (dst_len == 0u)) {
@@ -52,6 +53,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN 1 */
 extern struct netif gnetif;
 
+/** @brief Returns a CLI-friendly snapshot of the active LwIP netif state. */
 app_status_t lwip_get_runtime_state(lwip_runtime_state_t *out)
 {
   if (out == NULL) {

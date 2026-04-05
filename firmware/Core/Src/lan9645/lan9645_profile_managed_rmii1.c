@@ -1,5 +1,10 @@
 #include "lan9645/lan9645_profile_managed_rmii1.h"
 
+/**
+ * @file lan9645_profile_managed_rmii1.c
+ * @brief Fixed bring-up profile for the current managed LAN9645 RMII design.
+ */
+
 #include <stddef.h>
 
 #include "lan9645/lan9645_reg.h"
@@ -14,6 +19,9 @@
 #define LAN9645_PROFILE_LINK_SPEED_1000  (3u)
 #define LAN9645_PROFILE_CPU_DEV_IRQ_ENABLE_MASK (0x1FFu)
 
+/**
+ * @brief Convenience wrapper that reads one descriptor from target instance 0.
+ */
 static app_status_t lan9645_profile_read_desc(
   lan9645_core_t *core,
   const lan9645_reg_desc_t *desc,
@@ -29,6 +37,9 @@ static app_status_t lan9645_profile_read_desc(
   return lan9645_reg_read32_desc(core->reg, desc, 0u, group_instance, reg_instance, value);
 }
 
+/**
+ * @brief Reads back a register field and verifies it matches the expected masked value.
+ */
 static app_status_t lan9645_profile_verify_masked(
   lan9645_core_t *core,
   const lan9645_reg_desc_t *desc,
@@ -47,6 +58,9 @@ static app_status_t lan9645_profile_verify_masked(
   return (((val & mask) == (expected & mask)) ? APP_OK : APP_EIO);
 }
 
+/**
+ * @brief Reads the feature-disable register twice to reject unstable SPI data.
+ */
 static app_status_t lan9645_profile_read_feat_disable(
   lan9645_core_t *core,
   uint32_t *feat_disable
@@ -78,6 +92,9 @@ static app_status_t lan9645_profile_read_feat_disable(
   return APP_OK;
 }
 
+/**
+ * @brief Configures one DEV MAC block for the requested speed and duplex.
+ */
 static app_status_t lan9645_profile_configure_dev_mac(
   lan9645_core_t *core,
   uint32_t dev,
@@ -144,6 +161,9 @@ static app_status_t lan9645_profile_configure_dev_mac(
   return APP_OK;
 }
 
+/**
+ * @brief Configures the external CPU port routing used by the STM32.
+ */
 static app_status_t lan9645_profile_configure_ext_cpu(lan9645_core_t *core)
 {
   uint32_t mask = 0u;
@@ -176,6 +196,9 @@ static app_status_t lan9645_profile_configure_ext_cpu(lan9645_core_t *core)
   );
 }
 
+/**
+ * @brief Enables the interrupt sources used by the current firmware.
+ */
 static app_status_t lan9645_profile_configure_irq(lan9645_core_t *core)
 {
   app_status_t st = APP_OK;
@@ -213,6 +236,9 @@ static app_status_t lan9645_profile_configure_irq(lan9645_core_t *core)
   return APP_OK;
 }
 
+/**
+ * @brief Verifies that one DEV MAC block matches the intended 10/100 profile.
+ */
 static app_status_t lan9645_profile_verify_dev_mac(
   lan9645_core_t *core,
   uint32_t dev,
@@ -264,6 +290,9 @@ static app_status_t lan9645_profile_verify_dev_mac(
   );
 }
 
+/**
+ * @brief Verifies that a switch port is enabled in QSYS.
+ */
 static app_status_t lan9645_profile_verify_port_enabled(lan9645_core_t *core, uint32_t port)
 {
   return lan9645_profile_verify_masked(
@@ -276,6 +305,9 @@ static app_status_t lan9645_profile_verify_port_enabled(lan9645_core_t *core, ui
   );
 }
 
+/**
+ * @brief Verifies the interrupt configuration applied by the profile.
+ */
 static app_status_t lan9645_profile_verify_irq(lan9645_core_t *core)
 {
   app_status_t st = APP_OK;
@@ -302,6 +334,14 @@ static app_status_t lan9645_profile_verify_irq(lan9645_core_t *core)
   );
 }
 
+/**
+ * @brief Applies and verifies the project's fixed LAN9645 managed-switch profile.
+ *
+ * @param[in,out] core Core helper used to reach the switch.
+ * @param[out] out Optional summary of the resulting configuration.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_profile_managed_rmii1_apply(
   lan9645_core_t *core,
   lan9645_profile_result_t *out

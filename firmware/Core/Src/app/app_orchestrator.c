@@ -1,11 +1,19 @@
 #include "app/app_orchestrator.h"
 
+/**
+ * @file app_orchestrator.c
+ * @brief High-level firmware state machine and transition logging.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
 #include "diag/diag_router.h"
 #include "main.h"
 
+/**
+ * @brief Internal state wrapper for the application orchestrator.
+ */
 typedef struct {
   uint8_t initialized;
   app_orchestrator_snapshot_t snap;
@@ -13,6 +21,13 @@ typedef struct {
 
 static app_orch_state_t s_orch = {0};
 
+/**
+ * @brief Converts an application state into a readable label.
+ *
+ * @param[in] state State to convert.
+ *
+ * @return Constant string representation.
+ */
 const char *app_orchestrator_state_name(app_state_t state)
 {
   switch (state) {
@@ -27,6 +42,11 @@ const char *app_orchestrator_state_name(app_state_t state)
   }
 }
 
+/**
+ * @brief Initializes the application state machine to the boot state.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_init(void)
 {
   memset(&s_orch, 0, sizeof(s_orch));
@@ -38,6 +58,13 @@ app_status_t app_orchestrator_init(void)
   return APP_OK;
 }
 
+/**
+ * @brief Performs a state transition and logs it on the diagnostics route.
+ *
+ * @param[in] state New application state.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_set_state(app_state_t state)
 {
   char line[96];
@@ -69,6 +96,13 @@ app_status_t app_orchestrator_set_state(app_state_t state)
   return APP_OK;
 }
 
+/**
+ * @brief Forces the application into fault state and latches a fault code.
+ *
+ * @param[in] fault_code Fault reason to store.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_set_fault(uint32_t fault_code)
 {
   app_status_t st = app_orchestrator_set_state(APP_STATE_FAULT);
@@ -79,6 +113,11 @@ app_status_t app_orchestrator_set_fault(uint32_t fault_code)
   return APP_OK;
 }
 
+/**
+ * @brief Returns the current orchestrator state.
+ *
+ * @return Current application state.
+ */
 app_state_t app_orchestrator_get_state(void)
 {
   if (s_orch.initialized == 0u) {
@@ -87,6 +126,13 @@ app_state_t app_orchestrator_get_state(void)
   return s_orch.snap.state;
 }
 
+/**
+ * @brief Returns a snapshot of the orchestrator state machine.
+ *
+ * @param[out] out Destination snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_get_snapshot(app_orchestrator_snapshot_t *out)
 {
   if (out == NULL) {

@@ -1,11 +1,19 @@
 #include "diag/diag_core.h"
 
+/**
+ * @file diag_core.c
+ * @brief In-memory diagnostics store for event counters and last-failure context.
+ */
+
 #include <string.h>
 
 #include "time/time_service.h"
 
 #define DIAG_RING_SIZE (32u)
 
+/**
+ * @brief One entry in the diagnostics history ring.
+ */
 typedef struct {
   diag_event_t evt;
   app_time_t ts;
@@ -20,11 +28,21 @@ static diag_ring_entry_t s_ring[DIAG_RING_SIZE];
 static uint32_t s_ring_head = 0u;
 static uint32_t s_ring_count = 0u;
 
+/**
+ * @brief Validates that an event identifier is within the supported range.
+ *
+ * @param[in] id Event identifier to validate.
+ *
+ * @return 1 when valid, otherwise 0.
+ */
 static uint8_t diag_core_is_valid_id(diag_event_id_t id)
 {
   return (id < DIAG_EVT_COUNT) ? 1u : 0u;
 }
 
+/**
+ * @brief Clears all diagnostics counters, last-event state, and history.
+ */
 static void diag_core_reset_state(void)
 {
   uint32_t i = 0u;
@@ -42,6 +60,11 @@ static void diag_core_reset_state(void)
   }
 }
 
+/**
+ * @brief Initializes the diagnostics store.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_core_init(void)
 {
   if (s_initialized != 0u) {
@@ -53,6 +76,13 @@ app_status_t diag_core_init(void)
   return APP_OK;
 }
 
+/**
+ * @brief Records a diagnostics event and updates aggregate counters.
+ *
+ * @param[in] evt Event to record.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_core_report(const diag_event_t *evt)
 {
   app_time_t now = {0};
@@ -94,6 +124,14 @@ app_status_t diag_core_report(const diag_event_t *evt)
   return APP_OK;
 }
 
+/**
+ * @brief Returns the stored counter for one event identifier.
+ *
+ * @param[in] id Event identifier to query.
+ * @param[out] out Destination counter snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_core_get_error(diag_event_id_t id, diag_error_counter_t *out)
 {
   if (out == NULL) {
@@ -110,6 +148,13 @@ app_status_t diag_core_get_error(diag_event_id_t id, diag_error_counter_t *out)
   return APP_OK;
 }
 
+/**
+ * @brief Returns the last event reported into the diagnostics core.
+ *
+ * @param[out] out Destination event snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_core_get_last(diag_event_t *out)
 {
   if (out == NULL) {
@@ -126,6 +171,11 @@ app_status_t diag_core_get_last(diag_event_t *out)
   return APP_OK;
 }
 
+/**
+ * @brief Clears all diagnostics state while keeping the core initialized.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t diag_core_clear_all(void)
 {
   if (s_initialized == 0u) {

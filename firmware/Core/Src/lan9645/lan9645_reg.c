@@ -1,9 +1,21 @@
 #include "lan9645/lan9645_reg.h"
 
+/**
+ * @file lan9645_reg.c
+ * @brief Register abstraction that resolves descriptor-based LAN9645 accesses.
+ */
+
 #include <string.h>
 
 #include "main.h"
 
+/**
+ * @brief Validates that the register context is ready for use.
+ *
+ * @param[in] ctx Register context to validate.
+ *
+ * @return @ref APP_OK when the context is usable.
+ */
 static app_status_t lan9645_reg_check_ctx(const lan9645_reg_t *ctx)
 {
   if (ctx == NULL) {
@@ -15,6 +27,15 @@ static app_status_t lan9645_reg_check_ctx(const lan9645_reg_t *ctx)
   return APP_OK;
 }
 
+/**
+ * @brief Converts a target plus instance into a flat target-base table index.
+ *
+ * @param[in] target Register target identifier.
+ * @param[in] target_instance Target instance offset.
+ * @param[out] index_out Destination flat index.
+ *
+ * @return @ref APP_OK on success.
+ */
 static app_status_t lan9645_reg_resolve_target_index(
   lan9645_target_t target,
   uint32_t target_instance,
@@ -40,6 +61,18 @@ static app_status_t lan9645_reg_resolve_target_index(
   return APP_OK;
 }
 
+/**
+ * @brief Resolves a descriptor instance into an absolute register address.
+ *
+ * @param[in,out] ctx Register context holding target base addresses.
+ * @param[in] desc Register descriptor to resolve.
+ * @param[in] target_instance Additional target instance offset.
+ * @param[in] group_instance Additional group instance offset.
+ * @param[in] reg_instance Additional register instance offset.
+ * @param[out] abs_addr Destination absolute register address.
+ *
+ * @return @ref APP_OK on success.
+ */
 static app_status_t lan9645_reg_desc_to_addr(
   lan9645_reg_t *ctx,
   const lan9645_reg_desc_t *desc,
@@ -87,6 +120,14 @@ static app_status_t lan9645_reg_desc_to_addr(
   return APP_OK;
 }
 
+/**
+ * @brief Initializes the register context.
+ *
+ * @param[out] ctx Register context to initialize.
+ * @param[in] spi SPI transport used for raw register IO.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_init(lan9645_reg_t *ctx, lan9645_spi_t *spi)
 {
   if ((ctx == NULL) || (spi == NULL)) {
@@ -99,6 +140,16 @@ app_status_t lan9645_reg_init(lan9645_reg_t *ctx, lan9645_spi_t *spi)
   return APP_OK;
 }
 
+/**
+ * @brief Installs one target base address.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] target Register target identifier.
+ * @param[in] target_instance Target instance index.
+ * @param[in] base_addr Absolute target base address.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_set_target_base(
   lan9645_reg_t *ctx,
   lan9645_target_t target,
@@ -124,6 +175,15 @@ app_status_t lan9645_reg_set_target_base(
   return APP_OK;
 }
 
+/**
+ * @brief Clears one target base address entry.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] target Register target identifier.
+ * @param[in] target_instance Target instance index.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_clear_target_base(
   lan9645_reg_t *ctx,
   lan9645_target_t target,
@@ -148,6 +208,16 @@ app_status_t lan9645_reg_clear_target_base(
   return APP_OK;
 }
 
+/**
+ * @brief Returns one installed target base address.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] target Register target identifier.
+ * @param[in] target_instance Target instance index.
+ * @param[out] base_addr Destination base address.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_get_target_base(
   lan9645_reg_t *ctx,
   lan9645_target_t target,
@@ -179,6 +249,15 @@ app_status_t lan9645_reg_get_target_base(
   return APP_OK;
 }
 
+/**
+ * @brief Reads one absolute 32-bit register.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] reg_addr Absolute register address.
+ * @param[out] value Destination register value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_read32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t *value)
 {
   app_status_t st = APP_OK;
@@ -195,6 +274,15 @@ app_status_t lan9645_reg_read32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t 
   return lan9645_spi_read32(ctx->spi, reg_addr, value);
 }
 
+/**
+ * @brief Writes one absolute 32-bit register.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] reg_addr Absolute register address.
+ * @param[in] value Register value to write.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_write32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t value)
 {
   app_status_t st = lan9645_reg_check_ctx(ctx);
@@ -205,6 +293,16 @@ app_status_t lan9645_reg_write32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t
   return lan9645_spi_write32(ctx->spi, reg_addr, value);
 }
 
+/**
+ * @brief Performs a read-modify-write on one absolute register.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] reg_addr Absolute register address.
+ * @param[in] mask Field mask to update.
+ * @param[in] value New masked value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_rmw32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t mask, uint32_t value)
 {
   uint32_t reg_val = 0u;
@@ -219,6 +317,18 @@ app_status_t lan9645_reg_rmw32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t m
   return lan9645_reg_write32(ctx, reg_addr, reg_val);
 }
 
+/**
+ * @brief Polls one absolute register field until it matches the expected value.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] reg_addr Absolute register address.
+ * @param[in] mask Field mask to compare.
+ * @param[in] expected Expected masked value.
+ * @param[in] timeout_ms Poll timeout in milliseconds.
+ * @param[out] last_read Optional last-read register snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_wait_field(
   lan9645_reg_t *ctx,
   uint32_t reg_addr,
@@ -264,6 +374,18 @@ app_status_t lan9645_reg_wait_field(
   return APP_ETIMEOUT;
 }
 
+/**
+ * @brief Reads one descriptor-based register instance.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] desc Register descriptor.
+ * @param[in] target_instance Additional target offset.
+ * @param[in] group_instance Additional group offset.
+ * @param[in] reg_instance Additional register offset.
+ * @param[out] value Destination register value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_read32_desc(
   lan9645_reg_t *ctx,
   const lan9645_reg_desc_t *desc,
@@ -293,6 +415,18 @@ app_status_t lan9645_reg_read32_desc(
   return lan9645_reg_read32(ctx, abs_addr, value);
 }
 
+/**
+ * @brief Writes one descriptor-based register instance.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] desc Register descriptor.
+ * @param[in] target_instance Additional target offset.
+ * @param[in] group_instance Additional group offset.
+ * @param[in] reg_instance Additional register offset.
+ * @param[in] value Register value to write.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_write32_desc(
   lan9645_reg_t *ctx,
   const lan9645_reg_desc_t *desc,
@@ -318,6 +452,19 @@ app_status_t lan9645_reg_write32_desc(
   return lan9645_reg_write32(ctx, abs_addr, value);
 }
 
+/**
+ * @brief Performs a descriptor-based read-modify-write.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] desc Register descriptor.
+ * @param[in] target_instance Additional target offset.
+ * @param[in] group_instance Additional group offset.
+ * @param[in] reg_instance Additional register offset.
+ * @param[in] mask Field mask to update.
+ * @param[in] value New masked value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_rmw32_desc(
   lan9645_reg_t *ctx,
   const lan9645_reg_desc_t *desc,
@@ -344,6 +491,21 @@ app_status_t lan9645_reg_rmw32_desc(
   return lan9645_reg_rmw32(ctx, abs_addr, mask, value);
 }
 
+/**
+ * @brief Polls a descriptor-based register field until it matches the expected value.
+ *
+ * @param[in,out] ctx Register context.
+ * @param[in] desc Register descriptor.
+ * @param[in] target_instance Additional target offset.
+ * @param[in] group_instance Additional group offset.
+ * @param[in] reg_instance Additional register offset.
+ * @param[in] mask Field mask to compare.
+ * @param[in] expected Expected masked value.
+ * @param[in] timeout_ms Poll timeout in milliseconds.
+ * @param[out] last_read Optional last-read register snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_reg_wait32_desc(
   lan9645_reg_t *ctx,
   const lan9645_reg_desc_t *desc,

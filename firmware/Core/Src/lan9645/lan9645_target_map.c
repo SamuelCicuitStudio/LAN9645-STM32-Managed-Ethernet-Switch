@@ -1,5 +1,10 @@
 #include "lan9645/lan9645_target_map.h"
 
+/**
+ * @file lan9645_target_map.c
+ * @brief Target-base address table for the active LAN9645 STM32 integration.
+ */
+
 #include <stddef.h>
 
 #define LAN9645_TGT_BASE_QS        (0x00008000u)
@@ -15,6 +20,9 @@
 #define LAN9645_TGT_BASE_GCB       (0x00004000u)
 #define LAN9645_TGT_BASE_HSIO      (0x00030000u)
 
+/**
+ * @brief Default target map aligned with the Linux MFD LAN9645 address model.
+ */
 static const lan9645_target_map_entry_t s_board_target_map[] = {
   { LAN9645_TARGET_GCB, 0u, LAN9645_TGT_BASE_GCB },
   { LAN9645_TARGET_QS, 0u, LAN9645_TGT_BASE_QS },
@@ -37,6 +45,15 @@ static const lan9645_target_map_entry_t s_board_target_map[] = {
   { LAN9645_TARGET_CPU, 0u, LAN9645_TGT_BASE_CPU }
 };
 
+/**
+ * @brief Applies a target base-address table to the register layer.
+ *
+ * @param[in,out] reg Register layer to update.
+ * @param[in] entries Mapping entries to apply.
+ * @param[in] count Number of mapping entries.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_target_map_apply(
   lan9645_reg_t *reg,
   const lan9645_target_map_entry_t *entries,
@@ -68,6 +85,13 @@ app_status_t lan9645_target_map_apply(
   return APP_OK;
 }
 
+/**
+ * @brief Applies the project's default target map.
+ *
+ * @param[in,out] reg Register layer to update.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_target_map_apply_board_defaults(lan9645_reg_t *reg)
 {
   return lan9645_target_map_apply(

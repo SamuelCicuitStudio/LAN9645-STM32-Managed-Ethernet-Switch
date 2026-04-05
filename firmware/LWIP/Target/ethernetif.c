@@ -164,6 +164,7 @@ ETH_TxPacketConfig TxConfig;
 void pbuf_free_custom(struct pbuf *p);
 
 /* USER CODE BEGIN 4 */
+/** @brief Emits a diagnostics event when the USER_PHY layer reports a new error. */
 static void ethernetif_report_phy_error(int32_t phy_status)
 {
   diag_event_t evt;
@@ -187,6 +188,7 @@ static void ethernetif_report_phy_error(int32_t phy_status)
   (void)diag_router_write_event(&evt);
 }
 
+/** @brief Updates the cached Ethernet runtime snapshot used by the CLI. */
 static void ethernetif_update_state(uint8_t link_up, int32_t phy_status, uint32_t speed, uint32_t duplex)
 {
   s_eth_state.user_phy_ready = s_user_phy_ready;
@@ -198,6 +200,7 @@ static void ethernetif_update_state(uint8_t link_up, int32_t phy_status, uint32_
   s_eth_state.sample_tick_ms = HAL_GetTick();
 }
 
+/** @brief Initializes and binds the USER_PHY adapter on first use. */
 static int32_t ethernetif_user_phy_init_once(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -716,6 +719,7 @@ void HAL_ETH_TxFreeCallback(uint32_t * buff)
 }
 
 /* USER CODE BEGIN 8 */
+/** @brief Performs a low-level preflight of the USER_PHY and link-state path. */
 app_status_t ethernetif_preflight(void)
 {
   int32_t phy_st = USER_PHY_STATUS_OK;
@@ -736,6 +740,7 @@ app_status_t ethernetif_preflight(void)
   return APP_OK;
 }
 
+/** @brief Returns the cached Ethernet runtime snapshot used by the CLI. */
 app_status_t ethernetif_get_runtime_state(ethernetif_runtime_state_t *out)
 {
   if (out == NULL) {

@@ -1,5 +1,10 @@
 #include "cli/cli_core.h"
 
+/**
+ * @file cli_core.c
+ * @brief Command parser and bring-up control surface for the LAN9645 firmware.
+ */
+
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,8 +34,10 @@ static cli_core_state_t s_cli = {0};
 static lan9645_user_phy_adapter_t s_cli_phy = {0};
 static uint8_t s_cli_phy_ready = 0u;
 
+/** @brief Forward declaration used by composite bring-up commands. */
 static app_status_t cli_cmd_spi_status(void);
 
+/** @brief Compares two strings without case sensitivity. */
 static uint8_t cli_eq(const char *a, const char *b)
 {
   if ((a == NULL) || (b == NULL)) {
@@ -48,6 +55,7 @@ static uint8_t cli_eq(const char *a, const char *b)
   return ((*a == '\0') && (*b == '\0')) ? 1u : 0u;
 }
 
+/** @brief Writes a formatted line to the active diagnostics route. */
 static app_status_t cli_writef(const char *fmt, ...)
 {
   va_list ap;
@@ -69,6 +77,7 @@ static app_status_t cli_writef(const char *fmt, ...)
   return diag_router_write_text(line);
 }
 
+/** @brief Parses a CLI token into a 32-bit unsigned value. */
 static app_status_t cli_parse_u32(const char *s, uint32_t *out)
 {
   unsigned long v = 0ul;
@@ -87,6 +96,7 @@ static app_status_t cli_parse_u32(const char *s, uint32_t *out)
   return APP_OK;
 }
 
+/** @brief Prints decoded ANA event names for an ANA_ANEVENTS register snapshot. */
 static void cli_irq_print_ana_events(uint32_t ana_anevents)
 {
   if (ana_anevents == 0u) {
@@ -121,6 +131,7 @@ static void cli_irq_print_ana_events(uint32_t ana_anevents)
   }
 }
 
+/** @brief Converts a diagnostics event ID into a short CLI label. */
 static const char *cli_diag_evt_to_str(diag_event_id_t id)
 {
   switch (id) {
@@ -139,6 +150,7 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
   }
 }
 
+/** @brief Converts a diagnostics owner into a printable string. */
 static const char *cli_owner_to_str(app_owner_t owner)
 {
   switch (owner) {
@@ -150,6 +162,7 @@ static const char *cli_owner_to_str(app_owner_t owner)
   }
 }
 
+/** @brief Converts HAL Ethernet speed constants into readable text. */
 static const char *cli_eth_speed_to_str(uint32_t speed)
 {
   if (speed == ETH_SPEED_100M) {
@@ -161,6 +174,7 @@ static const char *cli_eth_speed_to_str(uint32_t speed)
   return "unknown";
 }
 
+/** @brief Converts HAL Ethernet duplex constants into readable text. */
 static const char *cli_eth_duplex_to_str(uint32_t duplex)
 {
   if (duplex == ETH_FULLDUPLEX_MODE) {
@@ -172,6 +186,7 @@ static const char *cli_eth_duplex_to_str(uint32_t duplex)
   return "unknown";
 }
 
+/** @brief Returns 1 when an IPv4 string is the all-zero address. */
 static uint8_t cli_ipv4_is_zero(const char *ip)
 {
   if (ip == NULL) {
@@ -180,6 +195,7 @@ static uint8_t cli_ipv4_is_zero(const char *ip)
   return (strcmp(ip, "0.0.0.0") == 0) ? 1u : 0u;
 }
 
+/** @brief Lazily prepares the USER_PHY adapter needed by PHY-related CLI commands. */
 static app_status_t cli_ensure_phy(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -209,6 +225,7 @@ static app_status_t cli_ensure_phy(void)
   return APP_OK;
 }
 
+/** @brief Prints the supported CLI command list. */
 static app_status_t cli_cmd_help(void)
 {
   (void)cli_writef("cli commands:\r\n");
@@ -240,6 +257,7 @@ static app_status_t cli_cmd_help(void)
   return APP_OK;
 }
 
+/** @brief Prints low-level Ethernet runtime state. */
 static app_status_t cli_cmd_eth_show(void)
 {
   ethernetif_runtime_state_t eth = {0};
@@ -261,6 +279,7 @@ static app_status_t cli_cmd_eth_show(void)
   return APP_OK;
 }
 
+/** @brief Prints LwIP runtime state and IPv4 configuration. */
 static app_status_t cli_cmd_net_show(void)
 {
   lwip_runtime_state_t net = {0};
@@ -294,6 +313,7 @@ static app_status_t cli_cmd_net_show(void)
   return APP_OK;
 }
 
+/** @brief Verifies that the network stack is ready for ping testing. */
 static app_status_t cli_cmd_net_check(void)
 {
   lwip_runtime_state_t net = {0};
@@ -347,6 +367,7 @@ static app_status_t cli_cmd_net_check(void)
   return (pass != 0u) ? APP_OK : APP_EIO;
 }
 
+/** @brief Prints serial routing and CLI ingress statistics. */
 static app_status_t cli_cmd_serial_show(void)
 {
   diag_router_state_t router = {0};
@@ -387,6 +408,7 @@ static app_status_t cli_cmd_serial_show(void)
   return APP_OK;
 }
 
+/** @brief Prints the current application state-machine snapshot. */
 static app_status_t cli_cmd_state_show(void)
 {
   app_orchestrator_snapshot_t snap = {0};
@@ -405,6 +427,7 @@ static app_status_t cli_cmd_state_show(void)
   return APP_OK;
 }
 
+/** @brief Clears all stored diagnostics counters. */
 static app_status_t cli_cmd_diag_clear(void)
 {
   app_status_t st = diag_core_clear_all();
@@ -416,6 +439,7 @@ static app_status_t cli_cmd_diag_clear(void)
   return APP_OK;
 }
 
+/** @brief Prints non-zero diagnostics counters. */
 static app_status_t cli_cmd_status_errors(void)
 {
   uint8_t found = 0u;
@@ -447,6 +471,7 @@ static app_status_t cli_cmd_status_errors(void)
   return APP_OK;
 }
 
+/** @brief Prints the interpreted link state for one copper port. */
 static app_status_t cli_cmd_link_show(uint8_t port)
 {
   int32_t link_state = 0;
@@ -469,6 +494,7 @@ static app_status_t cli_cmd_link_show(uint8_t port)
   return APP_OK;
 }
 
+/** @brief Dumps the synthetic PHY register view for one copper port. */
 static app_status_t cli_cmd_phy_show(uint8_t port)
 {
   uint32_t id1 = 0u;
@@ -525,6 +551,7 @@ static app_status_t cli_cmd_phy_show(uint8_t port)
   return APP_OK;
 }
 
+/** @brief Prints a combined application, LAN, IRQ, ETH, and diagnostics snapshot. */
 static app_status_t cli_cmd_status_all(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -590,6 +617,7 @@ static app_status_t cli_cmd_status_all(void)
   return cli_cmd_status_errors();
 }
 
+/** @brief Prints IRQ-line state and the relevant LAN9645 interrupt registers. */
 static app_status_t cli_cmd_irq_show(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -639,6 +667,7 @@ static app_status_t cli_cmd_irq_show(void)
   return APP_OK;
 }
 
+/** @brief Clears IRQ runtime counters. */
 static app_status_t cli_cmd_irq_clear(void)
 {
   app_status_t st = lan9645_runtime_irq_clear();
@@ -649,6 +678,7 @@ static app_status_t cli_cmd_irq_clear(void)
   return APP_OK;
 }
 
+/** @brief Acknowledges currently latched ANA interrupt events. */
 static app_status_t cli_cmd_irq_ack(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -673,6 +703,7 @@ static app_status_t cli_cmd_irq_ack(void)
   return APP_OK;
 }
 
+/** @brief Reads one raw LAN9645 register by absolute address. */
 static app_status_t cli_cmd_reg_read(uint32_t addr)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -692,6 +723,7 @@ static app_status_t cli_cmd_reg_read(uint32_t addr)
   return APP_OK;
 }
 
+/** @brief Writes and reads back one raw LAN9645 register by absolute address. */
 static app_status_t cli_cmd_reg_write(uint32_t addr, uint32_t value)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -720,6 +752,7 @@ static app_status_t cli_cmd_reg_write(uint32_t addr, uint32_t value)
   return APP_OK;
 }
 
+/** @brief Repeatedly reads one SPI register to expose unstable traffic. */
 static app_status_t cli_cmd_sanity_spi(uint32_t addr, uint32_t count)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -767,6 +800,7 @@ static app_status_t cli_cmd_sanity_spi(uint32_t addr, uint32_t count)
   return APP_OK;
 }
 
+/** @brief Prints the current LAN9645 SPI management interface status. */
 static app_status_t cli_cmd_spi_status(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -814,6 +848,7 @@ static app_status_t cli_cmd_spi_status(void)
   return APP_OK;
 }
 
+/** @brief Reads and decodes the LAN9645 chip identifier. */
 static app_status_t cli_cmd_lan_id(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -841,6 +876,7 @@ static app_status_t cli_cmd_lan_id(void)
   return APP_OK;
 }
 
+/** @brief Checks that one port matches the fixed managed profile. */
 static app_status_t cli_cmd_lan_check_port(lan9645_core_t *core, uint32_t port)
 {
   uint32_t v = 0u;
@@ -898,6 +934,7 @@ static app_status_t cli_cmd_lan_check_port(lan9645_core_t *core, uint32_t port)
   return (ok != 0u) ? APP_OK : APP_EIO;
 }
 
+/** @brief Runs the LAN9645 configuration sanity checks used before ping tests. */
 static app_status_t cli_cmd_lan_check(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -977,6 +1014,7 @@ static app_status_t cli_cmd_lan_check(void)
   return (pass != 0u) ? APP_OK : APP_EIO;
 }
 
+/** @brief Applies the fixed managed-switch profile. */
 static app_status_t cli_cmd_lan_profile_apply(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -1003,6 +1041,7 @@ static app_status_t cli_cmd_lan_profile_apply(void)
   return APP_OK;
 }
 
+/** @brief Runs the LAN preflight sequence used before network bring-up. */
 static app_status_t cli_cmd_lan_preflight(void)
 {
   app_status_t st = APP_OK;
@@ -1037,6 +1076,7 @@ static app_status_t cli_cmd_lan_preflight(void)
   return (pass != 0u) ? APP_OK : APP_EIO;
 }
 
+/** @brief Runs the high-level bring-up checklist used before the ping matrix. */
 static app_status_t cli_cmd_bringup_check(void)
 {
   uint8_t pass = 1u;
@@ -1061,6 +1101,7 @@ static app_status_t cli_cmd_bringup_check(void)
   return (pass != 0u) ? APP_OK : APP_EIO;
 }
 
+/** @brief Dispatches one tokenized CLI command. */
 static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
 {
   if ((tokens == NULL) || (ntok == 0u)) {
@@ -1290,6 +1331,7 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
   return APP_ENOTSUP;
 }
 
+/** @brief Initializes the CLI core and prints a ready banner. */
 app_status_t cli_core_init(void)
 {
   memset(&s_cli, 0, sizeof(s_cli));
@@ -1300,6 +1342,7 @@ app_status_t cli_core_init(void)
   return APP_OK;
 }
 
+/** @brief Placeholder periodic hook for future CLI background work. */
 app_status_t cli_core_poll(void)
 {
   if (s_cli.initialized == 0u) {
@@ -1308,6 +1351,7 @@ app_status_t cli_core_poll(void)
   return APP_OK;
 }
 
+/** @brief Parses and executes one CLI line. */
 app_status_t cli_core_exec_line(const char *line)
 {
   char buf[CLI_MAX_LINE_LEN];
@@ -1345,6 +1389,7 @@ app_status_t cli_core_exec_line(const char *line)
   return st;
 }
 
+/** @brief Returns the current CLI counters and active-port selection. */
 app_status_t cli_core_get_state(cli_core_state_t *out)
 {
   if (out == NULL) {

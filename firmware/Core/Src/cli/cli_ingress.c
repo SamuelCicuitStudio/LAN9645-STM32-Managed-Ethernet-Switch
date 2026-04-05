@@ -1,5 +1,10 @@
 #include "cli/cli_ingress.h"
 
+/**
+ * @file cli_ingress.c
+ * @brief Serial ingress queue that turns USB/UART bytes into executable CLI lines.
+ */
+
 #include <stdio.h>
 #include <string.h>
 
@@ -10,6 +15,9 @@
 #define CLI_INGRESS_LINE_LEN          (160u)
 #define CLI_INGRESS_QUEUE_DEPTH       (8u)
 
+/**
+ * @brief Internal ingress buffer, queue, and statistics state.
+ */
 typedef struct {
   uint8_t initialized;
   char line_buf[CLI_INGRESS_LINE_LEN];
@@ -25,6 +33,11 @@ typedef struct {
 
 static cli_ingress_state_t s_ing = {0};
 
+/**
+ * @brief Enters a short critical section used by the ingress queue.
+ *
+ * @return Previous PRIMASK state to restore later.
+ */
 static uint32_t cli_ingress_lock(void)
 {
   uint32_t primask = __get_PRIMASK();
@@ -32,6 +45,11 @@ static uint32_t cli_ingress_lock(void)
   return primask;
 }
 
+/**
+ * @brief Restores the interrupt state saved by @ref cli_ingress_lock.
+ *
+ * @param[in] primask Saved PRIMASK value.
+ */
 static void cli_ingress_unlock(uint32_t primask)
 {
   if (primask == 0u) {
@@ -39,6 +57,13 @@ static void cli_ingress_unlock(uint32_t primask)
   }
 }
 
+/**
+ * @brief Converts an ingress source channel into a diagnostics router owner.
+ *
+ * @param[in] source Source channel for the received command.
+ *
+ * @return Preferred diagnostics owner for responses.
+ */
 static app_owner_t cli_ingress_source_to_owner(app_channel_t source)
 {
   if (source == APP_CH_USB) {
@@ -50,6 +75,11 @@ static app_owner_t cli_ingress_source_to_owner(app_channel_t source)
   return APP_OWNER_NONE;
 }
 
+/**
+ * @brief Updates byte counters for one received character.
+ *
+ * @param[in] source Channel that supplied the byte.
+ */
 static void cli_ingress_count_rx_byte_locked(app_channel_t source)
 {
   if (source == APP_CH_USB) {
@@ -59,6 +89,11 @@ static void cli_ingress_count_rx_byte_locked(app_channel_t source)
   }
 }
 
+/**
+ * @brief Pushes the current assembled line into the execution queue.
+ *
+ * @param[in] source Channel that supplied the line.
+ */
 static void cli_ingress_push_line_locked(app_channel_t source)
 {
   if (s_ing.line_len == 0u) {
@@ -85,6 +120,11 @@ static void cli_ingress_push_line_locked(app_channel_t source)
   s_ing.line_source = APP_CH_BOTH;
 }
 
+/**
+ * @brief Initializes CLI ingress buffers and counters.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t cli_ingress_init(void)
 {
   memset(&s_ing, 0, sizeof(s_ing));
@@ -94,6 +134,14 @@ app_status_t cli_ingress_init(void)
   return APP_OK;
 }
 
+/**
+ * @brief Feeds one byte into the line assembler.
+ *
+ * @param[in] ch Received character.
+ * @param[in] source Channel that supplied the character.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t cli_ingress_feed_byte(uint8_t ch, app_channel_t source)
 {
   uint32_t lock = 0u;
@@ -134,6 +182,15 @@ app_status_t cli_ingress_feed_byte(uint8_t ch, app_channel_t source)
   return APP_OK;
 }
 
+/**
+ * @brief Feeds a block of bytes into the line assembler.
+ *
+ * @param[in] data Input byte buffer.
+ * @param[in] len Number of bytes in @p data.
+ * @param[in] source Channel that supplied the buffer.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t cli_ingress_feed_bytes(const uint8_t *data, uint32_t len, app_channel_t source)
 {
   uint32_t i = 0u;
@@ -152,6 +209,11 @@ app_status_t cli_ingress_feed_bytes(const uint8_t *data, uint32_t len, app_chann
   return APP_OK;
 }
 
+/**
+ * @brief Drains queued lines and dispatches them to the CLI core.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t cli_ingress_poll(void)
 {
   char line[CLI_INGRESS_LINE_LEN];
@@ -187,6 +249,13 @@ app_status_t cli_ingress_poll(void)
   return APP_OK;
 }
 
+/**
+ * @brief Returns a snapshot of ingress statistics.
+ *
+ * @param[out] out Destination statistics snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t cli_ingress_get_stats(cli_ingress_stats_t *out)
 {
   uint32_t lock = 0u;

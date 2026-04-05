@@ -1,5 +1,10 @@
 #include "lan9645/lan9645_core.h"
 
+/**
+ * @file lan9645_core.c
+ * @brief High-level LAN9645 core helpers for reset, SPI setup, and IRQ snapshots.
+ */
+
 #include <stddef.h>
 #include <string.h>
 
@@ -9,6 +14,13 @@
 
 #define LAN9645_CORE_SPI_SETUP_DELAY_MS (5u)
 
+/**
+ * @brief Validates that the LAN9645 core context is ready.
+ *
+ * @param[in] ctx Core context to validate.
+ *
+ * @return @ref APP_OK when the context is usable.
+ */
 static app_status_t lan9645_core_check_ctx(const lan9645_core_t *ctx)
 {
   if (ctx == NULL) {
@@ -20,6 +32,16 @@ static app_status_t lan9645_core_check_ctx(const lan9645_core_t *ctx)
   return APP_OK;
 }
 
+/**
+ * @brief Initializes the LAN9645 core helper.
+ *
+ * @param[out] ctx Core context to initialize.
+ * @param[in] reg Register layer used to access the switch.
+ * @param[in] rst_port GPIO port connected to LAN_RST.
+ * @param[in] rst_pin GPIO pin connected to LAN_RST.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_init(
   lan9645_core_t *ctx,
   lan9645_reg_t *reg,
@@ -41,6 +63,15 @@ app_status_t lan9645_core_init(
   return APP_OK;
 }
 
+/**
+ * @brief Pulses the external reset line and restores default SPI padding.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] assert_ms Reset-assertion duration.
+ * @param[in] release_ms Post-release delay.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_hw_reset(lan9645_core_t *ctx, uint32_t assert_ms, uint32_t release_ms)
 {
   app_status_t st = lan9645_core_check_ctx(ctx);
@@ -57,6 +88,14 @@ app_status_t lan9645_core_hw_reset(lan9645_core_t *ctx, uint32_t assert_ms, uint
   return APP_OK;
 }
 
+/**
+ * @brief Programs the SPI interface configuration inside the LAN9645.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] spi_clock_hz Active STM32 SPI clock.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_spi_setup(lan9645_core_t *ctx, uint32_t spi_clock_hz)
 {
   uint32_t if_cfgstat = 0u;
@@ -124,6 +163,18 @@ app_status_t lan9645_core_spi_setup(lan9645_core_t *ctx, uint32_t spi_clock_hz)
   return APP_OK;
 }
 
+/**
+ * @brief Returns the current SPI interface status from both cached and hardware state.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[out] if_ctrl Optional IF_CTRL register snapshot.
+ * @param[out] if_cfgstat Optional IF_CFGSTAT register snapshot.
+ * @param[out] padding_bytes Optional cached padding byte count.
+ * @param[out] spi_clock_hz Optional cached SPI clock.
+ * @param[out] spi_if_ready Optional cached readiness flag.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_get_spi_status(
   lan9645_core_t *ctx,
   uint32_t *if_ctrl,
@@ -187,6 +238,14 @@ app_status_t lan9645_core_get_spi_status(
   return APP_OK;
 }
 
+/**
+ * @brief Reads the switch chip identifier.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[out] chip_id Destination chip-ID value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_read_chip_id(lan9645_core_t *ctx, uint32_t *chip_id)
 {
   app_status_t st = lan9645_core_check_ctx(ctx);
@@ -207,6 +266,14 @@ app_status_t lan9645_core_read_chip_id(lan9645_core_t *ctx, uint32_t *chip_id)
   );
 }
 
+/**
+ * @brief Issues a software reset and waits until SPI access becomes valid again.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] timeout_ms Timeout in milliseconds, or 0 for default.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_soft_reset(lan9645_core_t *ctx, uint32_t timeout_ms)
 {
   uint32_t start_ms = 0u;
@@ -261,6 +328,14 @@ app_status_t lan9645_core_soft_reset(lan9645_core_t *ctx, uint32_t timeout_ms)
   return APP_ETIMEOUT;
 }
 
+/**
+ * @brief Reads the feature-disable register latched by the switch straps.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[out] feat_disable Destination register value.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_disable)
 {
   app_status_t st = lan9645_core_check_ctx(ctx);
@@ -281,6 +356,15 @@ app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_
   );
 }
 
+/**
+ * @brief Enables or disables one switch port.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[in] enable Set to 1 to enable the port.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_set_port_enable(lan9645_core_t *ctx, uint8_t port, uint8_t enable)
 {
   uint32_t value = (enable != 0u) ? LAN9645_QSYS_SW_PORT_MODE_PORT_ENA : 0u;
@@ -303,6 +387,17 @@ app_status_t lan9645_core_set_port_enable(lan9645_core_t *ctx, uint8_t port, uin
   );
 }
 
+/**
+ * @brief Samples RGMII in-band status bits for the selected interface.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] rgmii_idx RGMII interface index.
+ * @param[out] link_up Optional link status output.
+ * @param[out] duplex Optional duplex output.
+ * @param[out] speed_code Optional speed code output.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_get_rgmii_link(
   lan9645_core_t *ctx,
   uint8_t rgmii_idx,
@@ -345,6 +440,14 @@ app_status_t lan9645_core_get_rgmii_link(
   return APP_OK;
 }
 
+/**
+ * @brief Captures the main interrupt-related register set used by the CLI.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[out] out Destination IRQ snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_get_irq_regs(lan9645_core_t *ctx, lan9645_core_irq_regs_t *out)
 {
   app_status_t st = lan9645_core_check_ctx(ctx);
@@ -447,6 +550,14 @@ app_status_t lan9645_core_get_irq_regs(lan9645_core_t *ctx, lan9645_core_irq_reg
   return APP_OK;
 }
 
+/**
+ * @brief Acknowledges ANA interrupt events using write-one-to-clear semantics.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] ana_anevents_mask Events to acknowledge.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lan9645_core_ack_irq(lan9645_core_t *ctx, uint32_t ana_anevents_mask)
 {
   app_status_t st = lan9645_core_check_ctx(ctx);

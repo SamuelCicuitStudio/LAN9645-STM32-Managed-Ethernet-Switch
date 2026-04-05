@@ -1,5 +1,10 @@
 #include "lan9645/lan9645_regs.h"
 
+/**
+ * @file lan9645_regs.c
+ * @brief Linux-derived LAN9645 register descriptors used by the STM32 BSP.
+ */
+
 const lan9645_reg_desc_t LAN9645_REG_ANA_AUTOAGE =
   LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 27136u, 0u, 1u, 284u, 44u, 0u, 1u, 4u);
 
