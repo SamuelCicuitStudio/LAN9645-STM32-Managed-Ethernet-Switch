@@ -19,6 +19,7 @@
 #include "lan9645/lan9645_profile_managed_rmii1.h"
 #include "lan9645/lan9645_reg.h"
 #include "lan9645/lan9645_runtime.h"
+#include "lan9645/lan9645_stats.h"
 #include "lan9645/lan9645_user_phy_adapter.h"
 #include "lan9645/lan9645_vlan.h"
 #include "lwip.h"
@@ -145,6 +146,7 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_LAN_SPI_TIMEOUT: return "LAN_SPI_TIMEOUT";
     case DIAG_EVT_LAN_PORT_CFG_FAIL: return "LAN_PORT_CFG_FAIL";
     case DIAG_EVT_LAN_VLAN_CFG_FAIL: return "LAN_VLAN_CFG_FAIL";
+    case DIAG_EVT_LAN_CNT_OP_FAIL: return "LAN_CNT_OP_FAIL";
     case DIAG_EVT_LAN_STRAP_EXPECTATION: return "LAN_STRAP_EXPECTATION";
     case DIAG_EVT_LAN_RMII_LINK_TIMEOUT: return "LAN_RMII_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "LAN_SERDES0_LINK_TIMEOUT";
@@ -275,6 +277,8 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  port mode <0|1|8> <10|100> <half|full>\r\n");
   (void)cli_writef("  vlan set <vid> <member_mask_hex> <untag_mask_hex>\r\n");
   (void)cli_writef("  vlan show <vid>\r\n");
+  (void)cli_writef("  cnt read <view>\r\n");
+  (void)cli_writef("  cnt clear <view>\r\n");
   (void)cli_writef("  eth show\r\n");
   (void)cli_writef("  net show\r\n");
   (void)cli_writef("  net check\r\n");
@@ -718,6 +722,56 @@ static app_status_t cli_cmd_vlan_show(uint16_t vid)
     (unsigned int)entry.untag_mask
   );
   return APP_OK;
+}
+
+/** @brief Reads baseline SYS counters for one stat view and prints a compact snapshot. */
+static app_status_t cli_cmd_cnt_read(uint16_t view)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_stats_sample_t sample = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_stats_read(core, view, &sample);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "cnt view=%u rx_oct=%lu tx_oct=%lu dr_local=%lu sw_paused=%u\r\n",
+    (unsigned int)sample.view,
+    (unsigned long)sample.rx_oct,
+    (unsigned long)sample.tx_oct,
+    (unsigned long)sample.dr_local,
+    (unsigned int)sample.sw_paused
+  );
+  return APP_OK;
+}
+
+/** @brief Triggers baseline port-counter clear-shot for one stat view. */
+static app_status_t cli_cmd_cnt_clear(uint16_t view)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_stats_clear(core, view);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "cnt clear view=%u sel=0x%02X\r\n",
+    (unsigned int)view,
+    (unsigned int)LAN9645_STATS_CLEAR_SEL_PORTS
+  );
+  return cli_cmd_cnt_read(view);
 }
 
 /** @brief Prints a combined application, LAN, IRQ, ETH, and diagnostics snapshot. */
@@ -1547,6 +1601,27 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
         return APP_EINVAL;
       }
       return cli_cmd_vlan_set((uint16_t)vid, (uint16_t)member_mask, (uint16_t)untag_mask);
+    }
+    return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "cnt") != 0u) {
+    uint32_t view = 0u;
+    if (ntok < 3u) {
+      return APP_EINVAL;
+    }
+    if (cli_parse_u32(tokens[2], &view) != APP_OK) {
+      return APP_EINVAL;
+    }
+    if (view > LAN9645_STATS_VIEW_MAX) {
+      return APP_EINVAL;
+    }
+
+    if (cli_eq(tokens[1], "read") != 0u) {
+      return cli_cmd_cnt_read((uint16_t)view);
+    }
+    if (cli_eq(tokens[1], "clear") != 0u) {
+      return cli_cmd_cnt_clear((uint16_t)view);
     }
     return APP_EINVAL;
   }

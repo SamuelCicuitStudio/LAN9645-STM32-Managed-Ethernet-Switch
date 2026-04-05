@@ -202,11 +202,15 @@ What is locked for now (baseline CLI):
 - `lan check`
 - `lan profile apply`
 - `lan preflight`
+- `port show` / `port admin` / `port mode`
+- `vlan set` / `vlan show`
+- `cnt read` / `cnt clear`
 - `eth show`
 - `net show`
 - `net check`
 - `serial show`
 - `spi status`
+- `spi stats` / `spi stats clear`
 - `reg read` / `reg write`
 - `sanity spi`
 
@@ -410,6 +414,49 @@ F3 software status:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.4) F4 Progress Snapshot (April 5, 2026)
+
+F4 objective:
+- deterministic counter/statistics read-clear service for bring-up diagnostics.
+
+Implemented now in firmware:
+- `Core/Inc/diag/diag_core.h`
+  - added diagnostics event:
+    - `DIAG_EVT_LAN_CNT_OP_FAIL`
+- `Core/Src/diag/diag_router.c`
+  - added event label mapping:
+    - `DIAG_EVT_LAN_CNT_OP_FAIL`
+- `Core/Src/cli/cli_core.c`
+  - added CLI commands:
+    - `cnt read <view>`
+    - `cnt clear <view>`
+  - added diagnostics label mapping:
+    - `LAN_CNT_OP_FAIL`
+- `Core/Inc/lan9645/lan9645_stats.h` (new)
+  - added baseline stats API:
+    - `lan9645_stats_init()`
+    - `lan9645_stats_read()`
+    - `lan9645_stats_clear()`
+  - locked scope constants:
+    - `LAN9645_STATS_VIEW_MAX = 1023`
+    - `LAN9645_STATS_CLEAR_SEL_PORTS = 0x07`
+- `Core/Src/lan9645/lan9645_stats.c` (new)
+  - implemented `SYS_STAT_CFG` view programming and readback verification
+  - implemented baseline counter reads from `SYS_CNT` offsets:
+    - `0x000` (`rx_oct`)
+    - `0x080` (`tx_oct`)
+    - `0x100` (`dr_local`)
+  - implemented clear-shot flow with selector `0x07` for baseline port counters
+  - implemented `SYS_SW_STATUS(view).PORT_RX_PAUSED` sampling when `view < 10`
+  - all operation failures emit deterministic diagnostics via:
+    - `DIAG_EVT_LAN_CNT_OP_FAIL`
+
+F4 software status:
+- **Software complete (baseline scope)**
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)
@@ -420,7 +467,7 @@ Hardware validation status:
 | S2 | Managed profile and reset path | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` reset/profile apply |
 | S3 | USER_PHY adapter model | Completed (baseline) | `lan9645_user_phy_adapter.*` + deterministic logical address initialization in `eth_custom_phy_interface.c` |
 | S4 | LwIP netif link integration | Completed (baseline) | `LWIP/Target/ethernetif.c` link check uses USER_PHY + MAC speed/duplex update |
-| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `serial show`, `irq`, `reg`, `port`, `vlan`, `sanity spi` commands |
+| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `spi stats`, `serial show`, `irq`, `reg`, `port`, `vlan`, `cnt`, `sanity spi` commands |
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Deferred (not performed on hardware) | software progression assumes expected pass path; board execution pending |
