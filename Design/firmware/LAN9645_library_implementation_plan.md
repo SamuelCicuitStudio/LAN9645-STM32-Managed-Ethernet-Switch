@@ -205,6 +205,7 @@ What is locked for now (baseline CLI):
 - `port show` / `port admin` / `port mode`
 - `vlan set` / `vlan show`
 - `cnt read` / `cnt clear`
+- `feat list` / `feat enable` / `feat apply`
 - `eth show`
 - `net show`
 - `net check`
@@ -572,6 +573,51 @@ F7 software status:
 Hardware validation status:
 - **all pending rows remain `not performed`**.
 
+## 2.6.8) Linux-Reference Feature Matrix Coding Closure (April 5, 2026)
+
+Objective:
+- finalize STM32 code surface for all Linux-reference LAN9645x feature domains before board testing.
+
+Implemented now in firmware:
+- `Core/Inc/lan9645/lan9645_feature_matrix.h` (new)
+- `Core/Src/lan9645/lan9645_feature_matrix.c` (new)
+- `Core/Inc/lan9645/lan9645_runtime.h`
+- `Core/Src/lan9645/lan9645_runtime.c`
+- `Core/Src/main.c`
+- `Core/Src/cli/cli_core.c`
+- diagnostics event extension:
+  - `DIAG_EVT_LAN_FEAT_CFG_FAIL`
+
+What is now locked in code:
+1. Every Linux-reference domain has a concrete STM32 feature entry:
+- `afi`, `bum`, `cbs`, `cut_thru`, `dcb`, `eee`, `ets`, `fp`, `hsr_prp`, `lag`, `mac`, `manual_inj`, `mdb`, `mirror`, `mqprio`, `mrp`, `npi`, `phylink`, `police`, `psfp`, `ptp`, `qos`, `stream`, `taprio`, `tbf`, `tc_flower`, `tc_matchall`, `vcap`, `vlan`, `stats`.
+2. Deterministic per-feature runtime state is tracked:
+- enabled
+- register-backed support
+- configured flag
+- last status
+- apply/fail counters
+3. Runtime access path is integrated:
+- feature matrix pointer stored in LAN runtime context
+- startup apply hook executed after managed profile apply
+4. CLI control surface is added:
+- `feat list`
+- `feat enable <name> <on|off>`
+- `feat apply <name|all>`
+5. Diagnostic visibility is added:
+- feature-apply failures emit `DIAG_EVT_LAN_FEAT_CFG_FAIL`.
+
+Register-backed applies currently implemented in matrix:
+- `mac`
+- `npi`
+- `phylink`
+- `vlan`
+- `stats`
+
+Non register-backed matrix entries:
+- remain explicit and controllable in CLI matrix state, and return deterministic `APP_ENOTSUP` when applied.
+- this preserves full feature inventory in code while keeping unsupported hardware mappings explicit until the next register-porting pass.
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)
@@ -582,7 +628,7 @@ Hardware validation status:
 | S2 | Managed profile and reset path | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` reset/profile apply |
 | S3 | USER_PHY adapter model | Completed (baseline) | `lan9645_user_phy_adapter.*` + deterministic logical address initialization in `eth_custom_phy_interface.c` |
 | S4 | LwIP netif link integration | Completed (baseline) | `LWIP/Target/ethernetif.c` link check uses USER_PHY + MAC speed/duplex update |
-| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `spi stats`, `serial show`, `irq`, `reg`, `port`, `vlan`, `cnt`, `sanity spi` commands |
+| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `spi stats`, `serial show`, `irq`, `reg`, `port`, `vlan`, `cnt`, `feat`, `sanity spi` commands |
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Deferred (not performed on hardware) | software progression assumes expected pass path; board execution pending |

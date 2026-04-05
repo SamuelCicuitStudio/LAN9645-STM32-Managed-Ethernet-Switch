@@ -30,6 +30,7 @@
 #include "cli/cli_core.h"
 #include "cli/cli_ingress.h"
 #include "lan9645/lan9645_core.h"
+#include "lan9645/lan9645_feature_matrix.h"
 #include "lan9645/lan9645_profile_managed_rmii1.h"
 #include "lan9645/lan9645_reg.h"
 #include "lan9645/lan9645_runtime.h"
@@ -74,6 +75,7 @@ UART_HandleTypeDef huart4;
 static lan9645_spi_t g_lan_spi;
 static lan9645_reg_t g_lan_reg;
 static lan9645_core_t g_lan_core;
+static lan9645_feature_matrix_t g_lan_features;
 static uint32_t g_lan_irq_last_edge_count = 0u;
 static uint32_t g_lan_irq_last_ana_anaintr = 0u;
 static uint32_t g_lan_irq_last_ana_anevents = 0u;
@@ -260,6 +262,11 @@ int main(void)
     Error_Handler();
   }
   lan9645_runtime_set_core(&g_lan_core);
+  if (lan9645_feature_matrix_init(&g_lan_features, &g_lan_core) != APP_OK)
+  {
+    Error_Handler();
+  }
+  lan9645_runtime_set_feature_matrix(&g_lan_features);
   if (lan9645_runtime_irq_init(LAN9645_IRQ_STUCK_TIMEOUT_MS) != APP_OK)
   {
     Error_Handler();
@@ -326,6 +333,21 @@ int main(void)
       (void)ui_service_set_status(1u);
       (void)ui_service_set_error(0u);
       (void)ui_service_set_run(1u);
+      {
+        app_status_t feat_st = lan9645_feature_matrix_apply_all(&g_lan_features);
+        if (feat_st != APP_OK)
+        {
+          diag_event_t feat_evt;
+          feat_evt.id = DIAG_EVT_LAN_FEAT_CFG_FAIL;
+          feat_evt.severity = DIAG_SEV_WARN;
+          feat_evt.dev = 0u;
+          feat_evt.reg = 0u;
+          feat_evt.arg0 = (uint32_t)(int32_t)feat_st;
+          feat_evt.arg1 = 0u;
+          (void)diag_core_report(&feat_evt);
+          (void)diag_router_write_event(&feat_evt);
+        }
+      }
     }
   }
   (void)diag_router_poll();

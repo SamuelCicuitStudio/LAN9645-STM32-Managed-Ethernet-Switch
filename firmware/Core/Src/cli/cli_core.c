@@ -17,6 +17,7 @@
 #include "diag/diag_router.h"
 #include "ethernetif.h"
 #include "lan9645/lan9645_profile_managed_rmii1.h"
+#include "lan9645/lan9645_feature_matrix.h"
 #include "lan9645/lan9645_reg.h"
 #include "lan9645/lan9645_runtime.h"
 #include "lan9645/lan9645_stats.h"
@@ -175,6 +176,7 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_LAN_PORT_CFG_FAIL: return "LAN_PORT_CFG_FAIL";
     case DIAG_EVT_LAN_VLAN_CFG_FAIL: return "LAN_VLAN_CFG_FAIL";
     case DIAG_EVT_LAN_CNT_OP_FAIL: return "LAN_CNT_OP_FAIL";
+    case DIAG_EVT_LAN_FEAT_CFG_FAIL: return "LAN_FEAT_CFG_FAIL";
     case DIAG_EVT_LAN_STRAP_EXPECTATION: return "LAN_STRAP_EXPECTATION";
     case DIAG_EVT_LAN_RMII_LINK_TIMEOUT: return "LAN_RMII_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "LAN_SERDES0_LINK_TIMEOUT";
@@ -321,6 +323,9 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  vlan show <vid>\r\n");
   (void)cli_writef("  cnt read <view>\r\n");
   (void)cli_writef("  cnt clear <view>\r\n");
+  (void)cli_writef("  feat list\r\n");
+  (void)cli_writef("  feat enable <name> <on|off>\r\n");
+  (void)cli_writef("  feat apply <name|all>\r\n");
   (void)cli_writef("  eth show\r\n");
   (void)cli_writef("  net show\r\n");
   (void)cli_writef("  net check\r\n");
@@ -826,6 +831,117 @@ static app_status_t cli_cmd_cnt_clear(uint16_t view)
   return cli_cmd_cnt_read(view);
 }
 
+/** @brief Prints the Linux-reference feature matrix state and support coverage. */
+static app_status_t cli_cmd_feat_list(void)
+{
+  lan9645_feature_matrix_t *matrix = lan9645_runtime_get_feature_matrix();
+  lan9645_feature_summary_t summary = {0};
+  app_status_t st = APP_OK;
+
+  if (matrix == NULL) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_feature_matrix_get_summary(matrix, &summary);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "feat summary total=%lu enabled=%lu backed=%lu configured=%lu failed=%lu\r\n",
+    (unsigned long)summary.total_count,
+    (unsigned long)summary.enabled_count,
+    (unsigned long)summary.register_backed_count,
+    (unsigned long)summary.configured_count,
+    (unsigned long)summary.failed_count
+  );
+
+  for (uint32_t i = 0u; i < (uint32_t)LAN9645_FEATURE_COUNT; ++i) {
+    lan9645_feature_state_t state = {0};
+    st = lan9645_feature_matrix_get_state(matrix, (lan9645_feature_id_t)i, &state);
+    if (st != APP_OK) {
+      return st;
+    }
+
+    (void)cli_writef(
+      "feat name=%s enabled=%u backed=%u configured=%u last=%s(%ld) apply=%lu fail=%lu\r\n",
+      lan9645_feature_matrix_name((lan9645_feature_id_t)i),
+      (unsigned int)state.enabled,
+      (unsigned int)state.register_backed,
+      (unsigned int)state.configured,
+      cli_status_to_code(state.last_status),
+      (long)state.last_status,
+      (unsigned long)state.apply_count,
+      (unsigned long)state.fail_count
+    );
+  }
+
+  return APP_OK;
+}
+
+/** @brief Enables or disables one Linux-reference feature in the runtime profile. */
+static app_status_t cli_cmd_feat_enable(const char *name, uint8_t enable)
+{
+  lan9645_feature_matrix_t *matrix = lan9645_runtime_get_feature_matrix();
+  lan9645_feature_id_t feature = LAN9645_FEATURE_AFI;
+  app_status_t st = APP_OK;
+
+  if ((matrix == NULL) || (name == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_feature_matrix_parse(name, &feature);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_feature_matrix_set_enable(matrix, feature, enable);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "feat enable name=%s state=%s\r\n",
+    lan9645_feature_matrix_name(feature),
+    (enable != 0u) ? "on" : "off"
+  );
+  return APP_OK;
+}
+
+/** @brief Applies one feature or all enabled features from the Linux-reference matrix. */
+static app_status_t cli_cmd_feat_apply(const char *name)
+{
+  lan9645_feature_matrix_t *matrix = lan9645_runtime_get_feature_matrix();
+  app_status_t st = APP_OK;
+
+  if ((matrix == NULL) || (name == NULL)) {
+    return APP_ESTATE;
+  }
+
+  if (cli_eq(name, "all") != 0u) {
+    st = lan9645_feature_matrix_apply_all(matrix);
+    (void)cli_writef("feat apply target=all st=%s(%ld)\r\n", cli_status_to_code(st), (long)st);
+    return st;
+  }
+
+  {
+    lan9645_feature_id_t feature = LAN9645_FEATURE_AFI;
+    st = lan9645_feature_matrix_parse(name, &feature);
+    if (st != APP_OK) {
+      return st;
+    }
+
+    st = lan9645_feature_matrix_apply(matrix, feature);
+    (void)cli_writef(
+      "feat apply target=%s st=%s(%ld)\r\n",
+      lan9645_feature_matrix_name(feature),
+      cli_status_to_code(st),
+      (long)st
+    );
+  }
+
+  return st;
+}
+
 /** @brief Prints a combined application, LAN, IRQ, ETH, and diagnostics snapshot. */
 static app_status_t cli_cmd_status_all(void)
 {
@@ -860,6 +976,23 @@ static app_status_t cli_cmd_status_all(void)
     }
   } else {
     (void)cli_writef("lan core not ready\r\n");
+  }
+
+  {
+    lan9645_feature_matrix_t *matrix = lan9645_runtime_get_feature_matrix();
+    if (matrix != NULL) {
+      lan9645_feature_summary_t feat_summary = {0};
+      if (lan9645_feature_matrix_get_summary(matrix, &feat_summary) == APP_OK) {
+        (void)cli_writef(
+          "feat summary total=%lu enabled=%lu backed=%lu configured=%lu failed=%lu\r\n",
+          (unsigned long)feat_summary.total_count,
+          (unsigned long)feat_summary.enabled_count,
+          (unsigned long)feat_summary.register_backed_count,
+          (unsigned long)feat_summary.configured_count,
+          (unsigned long)feat_summary.failed_count
+        );
+      }
+    }
   }
 
   if (lan9645_runtime_irq_get(&irq_state) == APP_OK) {
@@ -1688,6 +1821,37 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
         return APP_EINVAL;
       }
       return cli_cmd_vlan_set((uint16_t)vid, (uint16_t)member_mask, (uint16_t)untag_mask);
+    }
+    return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "feat") != 0u) {
+    if (ntok < 2u) {
+      return APP_EINVAL;
+    }
+
+    if (cli_eq(tokens[1], "list") != 0u) {
+      return cli_cmd_feat_list();
+    }
+    if (cli_eq(tokens[1], "enable") != 0u) {
+      uint8_t enable = 0u;
+      if (ntok < 4u) {
+        return APP_EINVAL;
+      }
+      if (cli_eq(tokens[3], "on") != 0u) {
+        enable = 1u;
+      } else if (cli_eq(tokens[3], "off") != 0u) {
+        enable = 0u;
+      } else {
+        return APP_EINVAL;
+      }
+      return cli_cmd_feat_enable(tokens[2], enable);
+    }
+    if (cli_eq(tokens[1], "apply") != 0u) {
+      if (ntok < 3u) {
+        return APP_EINVAL;
+      }
+      return cli_cmd_feat_apply(tokens[2]);
     }
     return APP_EINVAL;
   }

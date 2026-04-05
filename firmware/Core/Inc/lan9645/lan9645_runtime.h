@@ -14,6 +14,7 @@ extern "C" {
 
 #include "app_common_types.h"
 #include "lan9645/lan9645_core.h"
+typedef struct lan9645_feature_matrix lan9645_feature_matrix_t;
 
 /**
  * @brief Snapshot of the external LAN IRQ line monitor.
@@ -41,6 +42,20 @@ void lan9645_runtime_set_core(lan9645_core_t *core);
  * @return Pointer previously provided to @ref lan9645_runtime_set_core.
  */
 lan9645_core_t *lan9645_runtime_get_core(void);
+
+/**
+ * @brief Installs the global feature-matrix pointer used by CLI/runtime helpers.
+ *
+ * @param[in] matrix Feature matrix context.
+ */
+void lan9645_runtime_set_feature_matrix(lan9645_feature_matrix_t *matrix);
+
+/**
+ * @brief Returns the currently installed global feature-matrix pointer.
+ *
+ * @return Pointer previously provided to @ref lan9645_runtime_set_feature_matrix.
+ */
+lan9645_feature_matrix_t *lan9645_runtime_get_feature_matrix(void);
 
 /**
  * @brief Initializes IRQ runtime tracking.

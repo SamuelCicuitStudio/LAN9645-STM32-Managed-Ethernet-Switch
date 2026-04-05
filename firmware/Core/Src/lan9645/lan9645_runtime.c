@@ -6,6 +6,7 @@
  */
 
 static lan9645_core_t *s_lan_core = NULL;
+static lan9645_feature_matrix_t *s_feature_matrix = NULL;
 static volatile uint32_t s_irq_edges_pending = 0u;
 static lan9645_irq_state_t s_irq_state = {0};
 
@@ -53,6 +54,26 @@ void lan9645_runtime_set_core(lan9645_core_t *core)
 lan9645_core_t *lan9645_runtime_get_core(void)
 {
   return s_lan_core;
+}
+
+/**
+ * @brief Stores the global feature-matrix pointer used by runtime helpers.
+ *
+ * @param[in] matrix Feature matrix pointer to store.
+ */
+void lan9645_runtime_set_feature_matrix(lan9645_feature_matrix_t *matrix)
+{
+  s_feature_matrix = matrix;
+}
+
+/**
+ * @brief Returns the global feature-matrix pointer.
+ *
+ * @return Current feature matrix pointer, or NULL when not installed.
+ */
+lan9645_feature_matrix_t *lan9645_runtime_get_feature_matrix(void)
+{
+  return s_feature_matrix;
 }
 
 /**
