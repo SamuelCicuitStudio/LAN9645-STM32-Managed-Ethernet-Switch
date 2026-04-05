@@ -41,24 +41,88 @@ flowchart TD
 
 ---
 
-## 2) Dependency Order (No Optional Path)
+## 2) Phase Order (No Optional Path)
 
 ```mermaid
 flowchart LR
-    S1[Step 1<br/>Transport + register layer] --> S2[Step 2<br/>LAN9645 managed profile bring-up]
-    S2 --> S3[Step 3<br/>USER_PHY adapter mapping]
-    S3 --> S4[Step 4<br/>ethernetif link-state integration]
-    S4 --> S5[Step 5<br/>time + diagnostics core]
-    S5 --> S6[Step 6<br/>serial router + CLI core]
-    S6 --> S7[Step 7<br/>orchestrator/runtime wiring]
-    S7 --> S8[Step 8<br/>Ping matrix validation]
+    P0[Phase 0<br/>LAN docs + register map freeze] --> P1[Phase 1<br/>time service]
+    P1 --> P2[Phase 2<br/>diag core]
+    P2 --> P3[Phase 3<br/>diag router + serial adapters]
+    P3 --> P4[Phase 4<br/>LAN transport + register layer]
+    P4 --> P5[Phase 5<br/>LAN managed profile/core]
+    P5 --> P6[Phase 6<br/>USER_PHY adapter mapping]
+    P6 --> P7[Phase 7<br/>ethernetif/netif/linker/cache glue]
+    P7 --> P8[Phase 8<br/>CLI + orchestrator + UI integration]
+    P8 --> P9[Phase 9<br/>Ping matrix validation]
 ```
 
 ---
 
-## 3) Step-by-Step Implementation Plan
+## 3) Phase-by-Phase Implementation Plan (Locked)
 
-## Step 1 - Transport and Register Foundation
+## Phase 0 - LAN9645 Documentation and Register Map Freeze (Mandatory Before LAN Coding)
+Objective:
+- lock the exact register addresses/bitfields used by firmware before implementing LAN driver modules.
+
+Required activities:
+1. Review LAN9645 documentation sections needed for phase 1:
+- SI/SPI client interface access rules
+- global reset/clock/control registers
+- RMII CPU-port link status path (`DEV8`)
+- copper PHY0/PHY1 mode and advertisement control
+- IRQ/status clear path
+- statistics counters used for health checks
+2. Build a phase-1 register map source table.
+3. Generate/author:
+- `Core/Inc/lan9645/lan9645_regs.h` (absolute addresses + masks)
+4. Cross-check register names and fields with existing design docs.
+
+Outputs:
+- frozen register/address list for all phase-1 API calls
+- no unresolved placeholder register symbol in phase-1 scope
+
+Done when:
+- every phase-1 LAN API in this plan has known address + field masks in `lan9645_regs.h`
+- register map reviewed and accepted as implementation baseline
+
+## Phase 1 - Time Service Foundation
+Implement first:
+- `lib_time_service`
+
+Mandatory outputs:
+- RTC or uptime timestamp API for all modules
+- deterministic formatting helpers for logs
+
+Done when:
+- timestamps available before diagnostics and CLI are initialized
+
+## Phase 2 - Diagnostics Core Foundation
+Implement:
+- `lib_diag_core`
+
+Mandatory outputs:
+- canonical event/error IDs
+- counters, first/last timestamps, context tracking
+- query API for `status errors`
+
+Done when:
+- any module can report structured events and read back counters
+
+## Phase 3 - Diagnostics Router and Serial Adapters
+Implement:
+- `lib_diag_router`
+- USB CDC adapter
+- UART4 adapter
+
+Mandatory outputs:
+- owner policy (`USB`, `UART4`, `NONE`)
+- mirror-on-none rule for errors
+- text/event routing API
+
+Done when:
+- routed error lines appear on correct serial channel(s)
+
+## Phase 4 - LAN Transport and Register Foundation
 Implement first:
 - `lan9645_spi.c`
 - `lan9645_reg.c`
@@ -68,12 +132,13 @@ Mandatory outputs:
 - read/write/rmw 32-bit register helpers
 - address conversion helper for SI register access
 - normalized return codes for read/write errors
+- use only addresses/masks from Phase 0 `lan9645_regs.h`
 
 Done when:
 - repeated SPI read/write sanity test passes
 - communication errors map to common LAN error IDs
 
-## Step 2 - Managed Profile Bring-Up
+## Phase 5 - LAN Managed Profile Bring-Up
 Implement:
 - `lan9645_core.c`
 - `lan9645_profile_managed_rmii1.c`
@@ -89,7 +154,7 @@ Done when:
 - profile apply function is deterministic and idempotent
 - failure exits with explicit error code and CLI message
 
-## Step 3 - USER_PHY Adapter Layer
+## Phase 6 - USER_PHY Adapter Layer
 Implement:
 - `lan9645_user_phy_adapter.c`
 - integration hooks in generated `eth_custom_phy_interface.c`
@@ -103,7 +168,7 @@ Mandatory outputs:
 Done when:
 - USER_PHY API returns stable link/speed/duplex states for both copper ports
 
-## Step 4 - Ethernet Link-State Integration
+## Phase 7 - Ethernet Link-State Integration
 Implement in:
 - `LWIP/Target/ethernetif.c`
 - `Core/Src/stm32h7xx_hal_msp.c`
@@ -119,48 +184,26 @@ Mandatory outputs:
 Done when:
 - no random frame corruption/loss under ping stress
 
-## Step 5 - Main Loop Runtime Contract
+## Phase 8 - CLI + Orchestrator + UI Runtime Contract
 Implement in:
+- `lib_cli_core`
+- `lib_app_orchestrator`
+- `lib_ui_service`
 - `Core/Src/main.c`
 - `LWIP/App/lwip.c`
 
 Mandatory outputs:
-- `MX_LWIP_Process()` called continuously in `while(1)`
-- `lib_time_service` integrated for timestamps
-- `lib_diag_core` integrated for canonical event/error tracking
-
-Done when:
-- network stack remains responsive continuously in no-RTOS mode
-
-## Step 6 - Serial Router and CLI Contract
-Implement in:
-- `lib_diag_router`
-- `lib_cli_core`
-- USB CDC and UART4 adapters
-
-Mandatory outputs:
+- `MX_LWIP_Process()` called continuously in main runtime
 - `status all`, `status errors`, `link show`, `phy show`, register read/write commands
-- mandatory error routing to active serial owner (USB or UART4)
-- if owner none: mirror errors to both channels
-
-Done when:
-- every LAN comm fault is visible in serial debug line
-
-## Step 7 - Orchestrator and UI Service Contract
-Implement in:
-- `lib_app_orchestrator`
-- `lib_ui_service`
-- `Core/Src/main.c` integration glue
-
-Mandatory outputs:
 - deterministic startup state machine (`BOOT` -> `LAN_RESET` -> `LAN_SPI_TEST` -> `LAN_PROFILE_APPLY` -> `NET_READY` -> `RUN`)
 - locked LED and button behavior
 - periodic poll schedule for LAN, CLI, diag router, and LwIP service
 
 Done when:
 - startup and fault transitions are deterministic and repeatable
+- every LAN comm fault is visible in serial debug line
 
-## Step 8 - Ping Validation Matrix
+## Phase 9 - Ping Validation Matrix
 Validation order:
 1. copper port 0 ping
 2. copper port 1 ping
@@ -177,6 +220,7 @@ Done when:
 
 | Package | Files | Main responsibility |
 |---|---|---|
+| WP0 Register Map | `lan9645_regs.h` | freeze addresses/bitfields from documentation |
 | WP1 Transport | `lan9645_spi.*`, `lan9645_reg.*` | reliable SI read/write |
 | WP2 Profile | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*` | reset + managed switch config |
 | WP3 USER_PHY | `lan9645_user_phy_adapter.*`, `eth_custom_phy_interface.c` user sections | PHY compatibility mapping |
@@ -208,6 +252,7 @@ Done when:
 
 ## 6) Definition of Done (Implementation Planning Complete)
 
+- [ ] Phase 0 documentation review and register map freeze are completed.
 - [ ] Module dependencies and public APIs match `STM32_library_api_dependency_contract.md`.
 - [ ] All planned files/modules are created with clear ownership.
 - [ ] USER_PHY adapter behavior matches dedicated spec exactly.
