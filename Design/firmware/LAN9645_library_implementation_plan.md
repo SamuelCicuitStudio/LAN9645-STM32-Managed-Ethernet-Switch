@@ -6,6 +6,7 @@ This document is the implementation planning reference for building the firmware
 It is aligned with:
 - `LAN9645_user_phy_driver_spec.md`
 - `LAN9645_managed_control_library_spec.md`
+- `STM32_library_api_dependency_contract.md`
 - generated Cube files in `firmware/`
 
 Locked targets for phase 1:
@@ -20,29 +21,22 @@ Locked targets for phase 1:
 
 ```mermaid
 flowchart TD
-    A[firmware/] --> B[Core integration]
-    A --> C[lan9645 library]
-    A --> D[LwIP adapter glue]
-    A --> E[CLI/status layer]
+    A[firmware/] --> LAN[lib_lan9645_core]
+    A --> UPHY[lib_lan9645_user_phy_adapter]
+    A --> DIAG[lib_diag_core]
+    A --> ROUTER[lib_diag_router]
+    A --> CLI[lib_cli_core]
+    A --> UI[lib_ui_service]
+    A --> TIME[lib_time_service]
+    A --> APP[lib_app_orchestrator]
+    A --> GLUE[LwIP/Cube glue files]
 
-    C --> C1[src/lan9645_spi.c]
-    C --> C2[src/lan9645_reg.c]
-    C --> C3[src/lan9645_core.c]
-    C --> C4[src/lan9645_port.c]
-    C --> C5[src/lan9645_phy.c]
-    C --> C6[src/lan9645_irq.c]
-    C --> C7[src/lan9645_stats.c]
-    C --> C8[src/lan9645_profile_managed_rmii1.c]
-    C --> C9[src/lan9645_user_phy_adapter.c]
-    C --> C10[inc/lan9645/*.h]
-
-    D --> D1[LWIP/Target/ethernetif.c]
-    D --> D2[LWIP/Target/eth_custom_phy_interface.c]
-    D --> D3[LWIP/App/lwip.c]
-
-    B --> B1[Core/Src/main.c]
-    B --> B2[Core/Src/stm32h7xx_hal_msp.c]
-    B --> B3[STM32H743BITX_FLASH.ld]
+    GLUE --> G1[LWIP/Target/ethernetif.c]
+    GLUE --> G2[LWIP/Target/eth_custom_phy_interface.c]
+    GLUE --> G3[LWIP/App/lwip.c]
+    GLUE --> G4[Core/Src/main.c]
+    GLUE --> G5[Core/Src/stm32h7xx_hal_msp.c]
+    GLUE --> G6[STM32H743BITX_FLASH.ld]
 ```
 
 ---
@@ -54,9 +48,10 @@ flowchart LR
     S1[Step 1<br/>Transport + register layer] --> S2[Step 2<br/>LAN9645 managed profile bring-up]
     S2 --> S3[Step 3<br/>USER_PHY adapter mapping]
     S3 --> S4[Step 4<br/>ethernetif link-state integration]
-    S4 --> S5[Step 5<br/>main loop + LwIP servicing]
-    S5 --> S6[Step 6<br/>CLI diagnostics wiring]
-    S6 --> S7[Step 7<br/>Ping matrix validation]
+    S4 --> S5[Step 5<br/>time + diagnostics core]
+    S5 --> S6[Step 6<br/>serial router + CLI core]
+    S6 --> S7[Step 7<br/>orchestrator/runtime wiring]
+    S7 --> S8[Step 8<br/>Ping matrix validation]
 ```
 
 ---
@@ -131,16 +126,17 @@ Implement in:
 
 Mandatory outputs:
 - `MX_LWIP_Process()` called continuously in `while(1)`
-- heartbeat/status/error LED service hooks
-- startup order: LAN init first, then network stack active service loop
+- `lib_time_service` integrated for timestamps
+- `lib_diag_core` integrated for canonical event/error tracking
 
 Done when:
 - network stack remains responsive continuously in no-RTOS mode
 
-## Step 6 - CLI and Fault Reporting Contract
+## Step 6 - Serial Router and CLI Contract
 Implement in:
-- CLI module files (or app layer files you choose)
-- USB CDC and UART4 output path
+- `lib_diag_router`
+- `lib_cli_core`
+- USB CDC and UART4 adapters
 
 Mandatory outputs:
 - `status all`, `status errors`, `link show`, `phy show`, register read/write commands
@@ -150,7 +146,21 @@ Mandatory outputs:
 Done when:
 - every LAN comm fault is visible in serial debug line
 
-## Step 7 - Ping Validation Matrix
+## Step 7 - Orchestrator and UI Service Contract
+Implement in:
+- `lib_app_orchestrator`
+- `lib_ui_service`
+- `Core/Src/main.c` integration glue
+
+Mandatory outputs:
+- deterministic startup state machine (`BOOT` -> `LAN_RESET` -> `LAN_SPI_TEST` -> `LAN_PROFILE_APPLY` -> `NET_READY` -> `RUN`)
+- locked LED and button behavior
+- periodic poll schedule for LAN, CLI, diag router, and LwIP service
+
+Done when:
+- startup and fault transitions are deterministic and repeatable
+
+## Step 8 - Ping Validation Matrix
 Validation order:
 1. copper port 0 ping
 2. copper port 1 ping
@@ -171,7 +181,9 @@ Done when:
 | WP2 Profile | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*` | reset + managed switch config |
 | WP3 USER_PHY | `lan9645_user_phy_adapter.*`, `eth_custom_phy_interface.c` user sections | PHY compatibility mapping |
 | WP4 Netif | `ethernetif.c`, `stm32h7xx_hal_msp.c`, linker script | ETH data path + memory/caches |
-| WP5 Runtime | `main.c`, CLI modules | loop service + diagnostics |
+| WP5 Diagnostics | `diag_core.*`, `time_service.*` | event model, counters, timestamps |
+| WP6 CLI/Router | `diag_router.*`, `cli_core.*`, USB/UART adapters | serial ownership and command routing |
+| WP7 Runtime | `app_orchestrator.*`, `ui_service.*`, `main.c` glue | deterministic startup/run/fault behavior |
 
 ---
 
@@ -196,10 +208,10 @@ Done when:
 
 ## 6) Definition of Done (Implementation Planning Complete)
 
+- [ ] Module dependencies and public APIs match `STM32_library_api_dependency_contract.md`.
 - [ ] All planned files/modules are created with clear ownership.
 - [ ] USER_PHY adapter behavior matches dedicated spec exactly.
 - [ ] LwIP service/runtime contract is satisfied (`NO_SYS=1` loop).
 - [ ] ETH memory + cache policy is stable under repeated ping traffic.
 - [ ] CLI fault visibility contract is fully active.
 - [ ] Ping matrix passes on all target ports.
-
