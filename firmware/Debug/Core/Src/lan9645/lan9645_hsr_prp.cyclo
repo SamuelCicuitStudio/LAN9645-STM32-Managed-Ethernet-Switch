@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_hsr_prp.c:20:21:lan9645_hsr_prp_validate_core	4
+../Core/Src/lan9645/lan9645_hsr_prp.c:32:21:lan9645_hsr_prp_write_verify	4
+../Core/Src/lan9645/lan9645_hsr_prp.c:76:14:lan9645_hsr_prp_init	1
+../Core/Src/lan9645/lan9645_hsr_prp.c:85:14:lan9645_hsr_prp_get_cfg	4
+../Core/Src/lan9645/lan9645_hsr_prp.c:115:14:lan9645_hsr_prp_set_cfg	4
+../Core/Src/lan9645/lan9645_hsr_prp.c:141:14:lan9645_hsr_prp_apply_baseline	3

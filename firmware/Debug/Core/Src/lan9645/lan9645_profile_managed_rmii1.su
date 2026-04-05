@@ -1,0 +1,10 @@
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:25:21:lan9645_profile_read_desc	32	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:43:21:lan9645_profile_verify_masked	40	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:64:21:lan9645_profile_read_feat_disable	40	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:98:21:lan9645_profile_configure_dev_mac	56	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:167:21:lan9645_profile_configure_ext_cpu	40	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:202:21:lan9645_profile_configure_irq	40	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:242:21:lan9645_profile_verify_dev_mac	48	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:296:21:lan9645_profile_verify_port_enabled	24	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:311:21:lan9645_profile_verify_irq	32	static
+../Core/Src/lan9645/lan9645_profile_managed_rmii1.c:345:14:lan9645_profile_managed_rmii1_apply	48	static

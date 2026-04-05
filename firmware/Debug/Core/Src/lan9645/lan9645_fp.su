@@ -1,0 +1,8 @@
+../Core/Src/lan9645/lan9645_fp.c:18:21:lan9645_fp_validate_core	16	static
+../Core/Src/lan9645/lan9645_fp.c:30:21:lan9645_fp_validate_port	16	static
+../Core/Src/lan9645/lan9645_fp.c:42:21:lan9645_fp_rmw_verify	48	static
+../Core/Src/lan9645/lan9645_fp.c:80:14:lan9645_fp_get_port_cfg	56	static
+../Core/Src/lan9645/lan9645_fp.c:169:14:lan9645_fp_set_port_cfg	40	static
+../Core/Src/lan9645/lan9645_fp.c:257:21:lan9645_fp_apply_port_baseline	32	static
+../Core/Src/lan9645/lan9645_fp.c:278:14:lan9645_fp_init	4	static
+../Core/Src/lan9645/lan9645_fp.c:287:14:lan9645_fp_apply_baseline	24	static

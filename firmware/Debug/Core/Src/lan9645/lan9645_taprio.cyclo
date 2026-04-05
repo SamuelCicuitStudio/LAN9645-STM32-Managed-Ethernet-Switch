@@ -1,0 +1,16 @@
+../Core/Src/lan9645/lan9645_taprio.c:23:21:lan9645_taprio_validate_core	4
+../Core/Src/lan9645/lan9645_taprio.c:34:21:lan9645_taprio_validate_cfg_values	3
+../Core/Src/lan9645/lan9645_taprio.c:51:21:lan9645_taprio_validate_list_values	3
+../Core/Src/lan9645/lan9645_taprio.c:63:21:lan9645_taprio_validate_gate_mask	1
+../Core/Src/lan9645/lan9645_taprio.c:74:21:lan9645_taprio_rmw_verify	4
+../Core/Src/lan9645/lan9645_taprio.c:112:21:lan9645_taprio_write_verify	4
+../Core/Src/lan9645/lan9645_taprio.c:148:21:lan9645_taprio_select_list	1
+../Core/Src/lan9645/lan9645_taprio.c:163:21:lan9645_taprio_select_gate_port	1
+../Core/Src/lan9645/lan9645_taprio.c:178:14:lan9645_taprio_get_cfg	5
+../Core/Src/lan9645/lan9645_taprio.c:209:14:lan9645_taprio_set_cfg	4
+../Core/Src/lan9645/lan9645_taprio.c:252:14:lan9645_taprio_get_list_state	6
+../Core/Src/lan9645/lan9645_taprio.c:287:14:lan9645_taprio_set_list_state	5
+../Core/Src/lan9645/lan9645_taprio.c:335:14:lan9645_taprio_get_port_gate_state	5
+../Core/Src/lan9645/lan9645_taprio.c:366:14:lan9645_taprio_set_port_gate_state	4
+../Core/Src/lan9645/lan9645_taprio.c:399:14:lan9645_taprio_init	1
+../Core/Src/lan9645/lan9645_taprio.c:408:14:lan9645_taprio_apply_baseline	8

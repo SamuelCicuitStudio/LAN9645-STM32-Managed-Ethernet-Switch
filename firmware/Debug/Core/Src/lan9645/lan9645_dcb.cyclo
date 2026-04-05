@@ -1,0 +1,8 @@
+../Core/Src/lan9645/lan9645_dcb.c:18:21:lan9645_dcb_validate_core	4
+../Core/Src/lan9645/lan9645_dcb.c:29:21:lan9645_dcb_validate_port	2
+../Core/Src/lan9645/lan9645_dcb.c:40:21:lan9645_dcb_rmw_verify	4
+../Core/Src/lan9645/lan9645_dcb.c:77:14:lan9645_dcb_get_port_cfg	8
+../Core/Src/lan9645/lan9645_dcb.c:162:14:lan9645_dcb_set_port_cfg	11
+../Core/Src/lan9645/lan9645_dcb.c:251:21:lan9645_dcb_apply_port_baseline	1
+../Core/Src/lan9645/lan9645_dcb.c:259:14:lan9645_dcb_init	1
+../Core/Src/lan9645/lan9645_dcb.c:268:14:lan9645_dcb_apply_baseline	5

@@ -1,0 +1,15 @@
+../Core/Src/lan9645/lan9645_psfp.c:22:21:lan9645_psfp_validate_core	4
+../Core/Src/lan9645/lan9645_psfp.c:33:21:lan9645_psfp_validate_sfid_values	5
+../Core/Src/lan9645/lan9645_psfp.c:54:21:lan9645_psfp_validate_gate_values	6
+../Core/Src/lan9645/lan9645_psfp.c:75:21:lan9645_psfp_write_verify	4
+../Core/Src/lan9645/lan9645_psfp.c:111:21:lan9645_psfp_wait_sfid_idle	1
+../Core/Src/lan9645/lan9645_psfp.c:129:21:lan9645_psfp_wait_sg_cfg_done	1
+../Core/Src/lan9645/lan9645_psfp.c:147:21:lan9645_psfp_select_sfid	1
+../Core/Src/lan9645/lan9645_psfp.c:162:21:lan9645_psfp_select_sgid	1
+../Core/Src/lan9645/lan9645_psfp.c:180:14:lan9645_psfp_init	1
+../Core/Src/lan9645/lan9645_psfp.c:189:14:lan9645_psfp_get_sfid_cfg	6
+../Core/Src/lan9645/lan9645_psfp.c:229:14:lan9645_psfp_set_sfid_cfg	5
+../Core/Src/lan9645/lan9645_psfp.c:286:14:lan9645_psfp_get_gate_cfg	6
+../Core/Src/lan9645/lan9645_psfp.c:326:14:lan9645_psfp_set_gate_cfg	4
+../Core/Src/lan9645/lan9645_psfp.c:376:14:lan9645_psfp_commit_gate_cfg	4
+../Core/Src/lan9645/lan9645_psfp.c:405:14:lan9645_psfp_apply_baseline	14

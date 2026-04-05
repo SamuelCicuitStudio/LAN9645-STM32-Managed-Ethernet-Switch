@@ -1,0 +1,15 @@
+../Core/Src/diag/diag_router.c:35:20:diag_router_evt_to_str	16	static
+../Core/Src/diag/diag_router.c:64:20:diag_router_sev_to_str	16	static
+../Core/Src/diag/diag_router.c:83:21:diag_router_tx_usb	24	static
+../Core/Src/diag/diag_router.c:110:21:diag_router_tx_uart	16	static
+../Core/Src/diag/diag_router.c:134:21:diag_router_tx_by_owner	24	static
+../Core/Src/diag/diag_router.c:185:14:diag_router_init	4	static
+../Core/Src/diag/diag_router.c:208:14:diag_router_set_owner	16	static
+../Core/Src/diag/diag_router.c:226:13:diag_router_get_owner	8	static
+../Core/Src/diag/diag_router.c:241:14:diag_router_set_usb_ready	16	static
+../Core/Src/diag/diag_router.c:257:14:diag_router_set_uart_ready	16	static
+../Core/Src/diag/diag_router.c:273:14:diag_router_write_text	24	static
+../Core/Src/diag/diag_router.c:302:14:diag_router_write_event	352	static
+../Core/Src/diag/diag_router.c:353:14:diag_router_set_bridge	16	static
+../Core/Src/diag/diag_router.c:369:14:diag_router_get_state	16	static
+../Core/Src/diag/diag_router.c:387:14:diag_router_poll	8	static

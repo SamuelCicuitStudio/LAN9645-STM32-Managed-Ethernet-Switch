@@ -1,0 +1,16 @@
+../Core/Src/lan9645/lan9645_spi.c:21:13:lan9645_spi_note_invalid	2
+../Core/Src/lan9645/lan9645_spi.c:38:17:lan9645_spi_reg_to_si_addr	1
+../Core/Src/lan9645/lan9645_spi.c:48:13:lan9645_spi_cs_assert	1
+../Core/Src/lan9645/lan9645_spi.c:58:13:lan9645_spi_cs_deassert	1
+../Core/Src/lan9645/lan9645_spi.c:72:21:lan9645_spi_tx	3
+../Core/Src/lan9645/lan9645_spi.c:94:21:lan9645_spi_txrx	3
+../Core/Src/lan9645/lan9645_spi.c:118:21:lan9645_spi_check_ctx	6
+../Core/Src/lan9645/lan9645_spi.c:143:14:lan9645_spi_init	6
+../Core/Src/lan9645/lan9645_spi.c:181:14:lan9645_spi_set_padding	3
+../Core/Src/lan9645/lan9645_spi.c:206:14:lan9645_spi_set_timeout	3
+../Core/Src/lan9645/lan9645_spi.c:231:14:lan9645_spi_set_retries	2
+../Core/Src/lan9645/lan9645_spi.c:251:14:lan9645_spi_reset_stats	2
+../Core/Src/lan9645/lan9645_spi.c:271:14:lan9645_spi_get_stats	3
+../Core/Src/lan9645/lan9645_spi.c:293:14:lan9645_spi_calc_padding	3
+../Core/Src/lan9645/lan9645_spi.c:324:14:lan9645_spi_read32	8
+../Core/Src/lan9645/lan9645_spi.c:403:14:lan9645_spi_write32	7

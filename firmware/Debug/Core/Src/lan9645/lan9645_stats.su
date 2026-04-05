@@ -1,0 +1,8 @@
+../Core/Inc/lan9645/lan9645_regs.h:91:24:lan9645_reg_desc_rel_addr	32	static
+../Core/Src/lan9645/lan9645_stats.c:29:13:lan9645_stats_report_fail	48	static
+../Core/Src/lan9645/lan9645_stats.c:47:21:lan9645_stats_validate	16	static
+../Core/Src/lan9645/lan9645_stats.c:61:21:lan9645_stats_program_cfg	56	static
+../Core/Src/lan9645/lan9645_stats.c:104:21:lan9645_stats_read_cnt	40	static
+../Core/Src/lan9645/lan9645_stats.c:122:14:lan9645_stats_init	4	static
+../Core/Src/lan9645/lan9645_stats.c:131:14:lan9645_stats_read	40	static
+../Core/Src/lan9645/lan9645_stats.c:183:14:lan9645_stats_clear	24	static

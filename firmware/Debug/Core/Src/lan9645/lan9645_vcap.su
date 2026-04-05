@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_vcap.c:17:21:lan9645_vcap_validate_core	16	static
+../Core/Src/lan9645/lan9645_vcap.c:29:21:lan9645_vcap_validate_port	24	static
+../Core/Src/lan9645/lan9645_vcap.c:43:14:lan9645_vcap_init	4	static
+../Core/Src/lan9645/lan9645_vcap.c:52:14:lan9645_vcap_get_port_cfg	48	static
+../Core/Src/lan9645/lan9645_vcap.c:105:14:lan9645_vcap_set_port_cfg	56	static
+../Core/Src/lan9645/lan9645_vcap.c:234:14:lan9645_vcap_apply_baseline	48	static

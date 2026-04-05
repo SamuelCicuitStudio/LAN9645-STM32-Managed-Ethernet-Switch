@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_lag.c:16:21:lan9645_lag_validate_core	4
+../Core/Src/lan9645/lan9645_lag.c:28:21:lan9645_lag_write_verify	4
+../Core/Src/lan9645/lan9645_lag.c:58:14:lan9645_lag_get_cfg	4
+../Core/Src/lan9645/lan9645_lag.c:88:14:lan9645_lag_set_cfg	16
+../Core/Src/lan9645/lan9645_lag.c:130:14:lan9645_lag_init	1
+../Core/Src/lan9645/lan9645_lag.c:139:14:lan9645_lag_apply_baseline	3

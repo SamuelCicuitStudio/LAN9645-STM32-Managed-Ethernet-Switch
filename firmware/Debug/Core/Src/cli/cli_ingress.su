@@ -1,0 +1,10 @@
+../Core/Src/cli/cli_ingress.c:41:17:cli_ingress_lock	16	static,ignoring_inline_asm
+../Core/Src/cli/cli_ingress.c:53:13:cli_ingress_unlock	16	static,ignoring_inline_asm
+../Core/Src/cli/cli_ingress.c:67:20:cli_ingress_source_to_owner	16	static
+../Core/Src/cli/cli_ingress.c:83:13:cli_ingress_count_rx_byte_locked	16	static
+../Core/Src/cli/cli_ingress.c:97:13:cli_ingress_push_line_locked	16	static
+../Core/Src/cli/cli_ingress.c:128:14:cli_ingress_init	8	static
+../Core/Src/cli/cli_ingress.c:145:14:cli_ingress_feed_byte	24	static
+../Core/Src/cli/cli_ingress.c:194:14:cli_ingress_feed_bytes	32	static
+../Core/Src/cli/cli_ingress.c:217:14:cli_ingress_poll	176	static
+../Core/Src/cli/cli_ingress.c:259:14:cli_ingress_get_stats	32	static

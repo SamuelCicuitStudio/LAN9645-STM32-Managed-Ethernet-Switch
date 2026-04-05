@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_mrp.c:19:21:lan9645_mrp_validate_core	16	static
+../Core/Src/lan9645/lan9645_mrp.c:31:21:lan9645_mrp_write_verify	48	static
+../Core/Src/lan9645/lan9645_mrp.c:76:14:lan9645_mrp_init	4	static
+../Core/Src/lan9645/lan9645_mrp.c:85:14:lan9645_mrp_get_cfg	32	static
+../Core/Src/lan9645/lan9645_mrp.c:115:14:lan9645_mrp_set_cfg	32	static
+../Core/Src/lan9645/lan9645_mrp.c:141:14:lan9645_mrp_apply_baseline	24	static

@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_tc_flower.c:15:21:lan9645_tc_flower_validate_core	4
+../Core/Src/lan9645/lan9645_tc_flower.c:27:21:lan9645_tc_flower_validate_port	4
+../Core/Src/lan9645/lan9645_tc_flower.c:39:14:lan9645_tc_flower_init	1
+../Core/Src/lan9645/lan9645_tc_flower.c:48:14:lan9645_tc_flower_get_state	6
+../Core/Src/lan9645/lan9645_tc_flower.c:85:14:lan9645_tc_flower_set_enable	6
+../Core/Src/lan9645/lan9645_tc_flower.c:128:14:lan9645_tc_flower_apply_baseline	3

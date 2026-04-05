@@ -1,0 +1,12 @@
+../Core/Src/lan9645/lan9645_bum.c:25:21:lan9645_bum_validate_core	4
+../Core/Src/lan9645/lan9645_bum.c:36:21:lan9645_bum_validate_priority	2
+../Core/Src/lan9645/lan9645_bum.c:47:21:lan9645_bum_validate_pgid	2
+../Core/Src/lan9645/lan9645_bum.c:58:21:lan9645_bum_write_verify	4
+../Core/Src/lan9645/lan9645_bum.c:95:14:lan9645_bum_init	1
+../Core/Src/lan9645/lan9645_bum.c:104:14:lan9645_bum_get_flood_cfg	5
+../Core/Src/lan9645/lan9645_bum.c:138:14:lan9645_bum_set_flood_cfg	6
+../Core/Src/lan9645/lan9645_bum.c:181:14:lan9645_bum_get_ipmc_cfg	4
+../Core/Src/lan9645/lan9645_bum.c:207:14:lan9645_bum_set_ipmc_cfg	6
+../Core/Src/lan9645/lan9645_bum.c:249:14:lan9645_bum_get_pgid_mask	5
+../Core/Src/lan9645/lan9645_bum.c:280:14:lan9645_bum_set_pgid_mask	4
+../Core/Src/lan9645/lan9645_bum.c:312:14:lan9645_bum_apply_baseline	11

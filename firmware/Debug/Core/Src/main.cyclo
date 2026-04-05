@@ -1,0 +1,13 @@
+../Core/Src/main.c:100:17:lan9645_spi_prescaler_to_div	15
+../Core/Src/main.c:122:17:lan9645_spi_effective_clock_hz	4
+../Core/Src/main.c:148:5:main	29
+../Core/Src/main.c:416:6:SystemClock_Config	4
+../Core/Src/main.c:478:13:MX_CRC_Init	2
+../Core/Src/main.c:509:13:MX_RNG_Init	2
+../Core/Src/main.c:536:13:MX_RTC_Init	3
+../Core/Src/main.c:579:13:MX_SPI1_Init	2
+../Core/Src/main.c:627:13:MX_UART4_Init	5
+../Core/Src/main.c:675:13:MX_GPIO_Init	1
+../Core/Src/main.c:741:6:HAL_GPIO_EXTI_Callback	2
+../Core/Src/main.c:754:6:MPU_Config	1
+../Core/Src/main.c:800:6:Error_Handler	1

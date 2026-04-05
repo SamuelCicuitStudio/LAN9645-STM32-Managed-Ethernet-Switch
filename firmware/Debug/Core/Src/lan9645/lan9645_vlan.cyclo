@@ -1,0 +1,7 @@
+../Core/Inc/lan9645/lan9645_regs.h:91:24:lan9645_reg_desc_rel_addr	1
+../Core/Src/lan9645/lan9645_vlan.c:31:13:lan9645_vlan_report_fail	1
+../Core/Src/lan9645/lan9645_vlan.c:49:21:lan9645_vlan_validate_args	8
+../Core/Src/lan9645/lan9645_vlan.c:77:21:lan9645_vlan_ensure_aggr_cfg	4
+../Core/Src/lan9645/lan9645_vlan.c:115:14:lan9645_vlan_init	1
+../Core/Src/lan9645/lan9645_vlan.c:125:14:lan9645_vlan_set	10
+../Core/Src/lan9645/lan9645_vlan.c:202:14:lan9645_vlan_get	9

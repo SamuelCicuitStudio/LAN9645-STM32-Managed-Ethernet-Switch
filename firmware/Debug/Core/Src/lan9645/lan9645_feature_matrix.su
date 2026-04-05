@@ -1,0 +1,12 @@
+../Core/Src/lan9645/lan9645_feature_matrix.c:82:16:lan9645_feature_name_eq	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:102:13:lan9645_feature_report_fail	40	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:125:21:lan9645_feature_apply_vlan	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:143:21:lan9645_feature_apply_stats	16	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:152:14:lan9645_feature_matrix_init	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:234:13:lan9645_feature_matrix_name	16	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:245:14:lan9645_feature_matrix_parse	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:266:14:lan9645_feature_matrix_set_enable	16	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:286:14:lan9645_feature_matrix_get_state	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:306:14:lan9645_feature_matrix_apply	24	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:447:14:lan9645_feature_matrix_apply_all	32	static
+../Core/Src/lan9645/lan9645_feature_matrix.c:473:14:lan9645_feature_matrix_get_summary	24	static

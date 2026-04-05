@@ -1,0 +1,7 @@
+../Core/Src/lan9645/lan9645_npi.c:24:21:lan9645_npi_validate_core	4
+../Core/Src/lan9645/lan9645_npi.c:36:21:lan9645_npi_validate_port	2
+../Core/Src/lan9645/lan9645_npi.c:48:21:lan9645_npi_rmw_verify	4
+../Core/Src/lan9645/lan9645_npi.c:85:14:lan9645_npi_get_cfg	8
+../Core/Src/lan9645/lan9645_npi.c:169:14:lan9645_npi_set_cfg	15
+../Core/Src/lan9645/lan9645_npi.c:254:14:lan9645_npi_init	1
+../Core/Src/lan9645/lan9645_npi.c:263:14:lan9645_npi_apply_baseline	4

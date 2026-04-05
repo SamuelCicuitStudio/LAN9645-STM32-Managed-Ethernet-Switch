@@ -1,0 +1,9 @@
+../Core/Src/lan9645/lan9645_phylink.c:20:21:lan9645_phylink_validate_core	4
+../Core/Src/lan9645/lan9645_phylink.c:32:21:lan9645_phylink_validate_rgmii_idx	2
+../Core/Src/lan9645/lan9645_phylink.c:44:21:lan9645_phylink_validate_cpu_port	2
+../Core/Src/lan9645/lan9645_phylink.c:56:14:lan9645_phylink_get_rgmii_cfg	5
+../Core/Src/lan9645/lan9645_phylink.c:103:14:lan9645_phylink_set_rgmii_cfg	16
+../Core/Src/lan9645/lan9645_phylink.c:180:14:lan9645_phylink_get_cpu_cfg	5
+../Core/Src/lan9645/lan9645_phylink.c:216:14:lan9645_phylink_set_cpu_cfg	15
+../Core/Src/lan9645/lan9645_phylink.c:267:14:lan9645_phylink_init	1
+../Core/Src/lan9645/lan9645_phylink.c:276:14:lan9645_phylink_apply_baseline	6

@@ -1,0 +1,8 @@
+../Core/Src/ui/ui_service.c:36:16:ui_read_button_raw	16	static
+../Core/Src/ui/ui_service.c:45:13:ui_apply_outputs	8	static
+../Core/Src/ui/ui_service.c:57:14:ui_service_init	8	static
+../Core/Src/ui/ui_service.c:80:14:ui_service_set_status	16	static
+../Core/Src/ui/ui_service.c:98:14:ui_service_set_error	16	static
+../Core/Src/ui/ui_service.c:116:14:ui_service_set_run	16	static
+../Core/Src/ui/ui_service.c:137:9:ui_service_take_button_event	16	static
+../Core/Src/ui/ui_service.c:149:14:ui_service_poll	16	static

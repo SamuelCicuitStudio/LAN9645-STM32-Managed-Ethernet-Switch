@@ -1,0 +1,11 @@
+../Core/Src/lan9645/lan9645_police.c:19:21:lan9645_police_validate_core	16	static
+../Core/Src/lan9645/lan9645_police.c:30:21:lan9645_police_validate_port_cfg_values	16	static
+../Core/Src/lan9645/lan9645_police.c:51:21:lan9645_police_validate_index_cfg_values	16	static
+../Core/Src/lan9645/lan9645_police.c:86:21:lan9645_police_rmw_verify	48	static
+../Core/Src/lan9645/lan9645_police.c:123:21:lan9645_police_write_verify	40	static
+../Core/Src/lan9645/lan9645_police.c:159:14:lan9645_police_get_port_cfg	40	static
+../Core/Src/lan9645/lan9645_police.c:191:14:lan9645_police_set_port_cfg	40	static
+../Core/Src/lan9645/lan9645_police.c:239:14:lan9645_police_get_index_cfg	48	static
+../Core/Src/lan9645/lan9645_police.c:289:14:lan9645_police_set_index_cfg	64	static
+../Core/Src/lan9645/lan9645_police.c:378:14:lan9645_police_init	4	static
+../Core/Src/lan9645/lan9645_police.c:387:14:lan9645_police_apply_baseline	64	static

@@ -1,0 +1,4 @@
+../Core/Src/time/time_service.c:29:16:time_service_is_calendar_plausible	16	static
+../Core/Src/time/time_service.c:59:14:time_service_init	8	static
+../Core/Src/time/time_service.c:84:14:time_service_now	40	static
+../Core/Src/time/time_service.c:137:14:time_service_format	64	static

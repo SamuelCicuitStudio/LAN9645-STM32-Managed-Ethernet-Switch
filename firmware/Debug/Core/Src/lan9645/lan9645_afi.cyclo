@@ -1,0 +1,5 @@
+../Core/Src/lan9645/lan9645_afi.c:16:21:lan9645_afi_validate_core	4
+../Core/Src/lan9645/lan9645_afi.c:28:14:lan9645_afi_init	1
+../Core/Src/lan9645/lan9645_afi.c:37:14:lan9645_afi_get_cfg	4
+../Core/Src/lan9645/lan9645_afi.c:67:14:lan9645_afi_set_cfg	7
+../Core/Src/lan9645/lan9645_afi.c:117:14:lan9645_afi_apply_baseline	3

@@ -1,0 +1,11 @@
+../Core/Src/lan9645/lan9645_runtime.c:20:17:lan9645_runtime_irq_lock	1
+../Core/Src/lan9645/lan9645_runtime.c:32:13:lan9645_runtime_irq_unlock	2
+../Core/Src/lan9645/lan9645_runtime.c:44:6:lan9645_runtime_set_core	1
+../Core/Src/lan9645/lan9645_runtime.c:54:17:lan9645_runtime_get_core	1
+../Core/Src/lan9645/lan9645_runtime.c:64:6:lan9645_runtime_set_feature_matrix	1
+../Core/Src/lan9645/lan9645_runtime.c:74:27:lan9645_runtime_get_feature_matrix	1
+../Core/Src/lan9645/lan9645_runtime.c:86:14:lan9645_runtime_irq_init	2
+../Core/Src/lan9645/lan9645_runtime.c:106:6:lan9645_runtime_irq_on_exti	1
+../Core/Src/lan9645/lan9645_runtime.c:120:14:lan9645_runtime_irq_poll	10
+../Core/Src/lan9645/lan9645_runtime.c:172:14:lan9645_runtime_irq_get	3
+../Core/Src/lan9645/lan9645_runtime.c:194:14:lan9645_runtime_irq_clear	2

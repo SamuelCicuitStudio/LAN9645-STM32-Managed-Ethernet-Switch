@@ -1,0 +1,9 @@
+../Core/Src/lan9645/lan9645_stream.c:21:21:lan9645_stream_validate_core	4
+../Core/Src/lan9645/lan9645_stream.c:32:21:lan9645_stream_validate_sfid_values	5
+../Core/Src/lan9645/lan9645_stream.c:53:21:lan9645_stream_write_verify	4
+../Core/Src/lan9645/lan9645_stream.c:89:21:lan9645_stream_wait_sfid_idle	1
+../Core/Src/lan9645/lan9645_stream.c:107:21:lan9645_stream_select_sfid	1
+../Core/Src/lan9645/lan9645_stream.c:122:14:lan9645_stream_init	1
+../Core/Src/lan9645/lan9645_stream.c:131:14:lan9645_stream_get_sfid_cfg	6
+../Core/Src/lan9645/lan9645_stream.c:171:14:lan9645_stream_set_sfid_cfg	5
+../Core/Src/lan9645/lan9645_stream.c:228:14:lan9645_stream_apply_baseline	3

@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_tc_matchall.c:15:21:lan9645_tc_matchall_validate_core	4
+../Core/Src/lan9645/lan9645_tc_matchall.c:27:21:lan9645_tc_matchall_validate_port	4
+../Core/Src/lan9645/lan9645_tc_matchall.c:39:14:lan9645_tc_matchall_init	1
+../Core/Src/lan9645/lan9645_tc_matchall.c:48:14:lan9645_tc_matchall_get_state	6
+../Core/Src/lan9645/lan9645_tc_matchall.c:85:14:lan9645_tc_matchall_set_enable	6
+../Core/Src/lan9645/lan9645_tc_matchall.c:128:14:lan9645_tc_matchall_apply_baseline	3

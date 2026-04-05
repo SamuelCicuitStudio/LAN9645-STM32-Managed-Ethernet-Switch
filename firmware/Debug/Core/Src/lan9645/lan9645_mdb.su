@@ -1,0 +1,13 @@
+../Core/Src/lan9645/lan9645_mdb.c:20:21:lan9645_mdb_validate_core	16	static
+../Core/Src/lan9645/lan9645_mdb.c:32:21:lan9645_mdb_validate_pgid_index	16	static
+../Core/Src/lan9645/lan9645_mdb.c:44:21:lan9645_mdb_write_verify	40	static
+../Core/Src/lan9645/lan9645_mdb.c:88:21:lan9645_mdb_apply_obey_vlan_all	32	static
+../Core/Src/lan9645/lan9645_mdb.c:103:21:lan9645_mdb_apply_snoop_default	16	static
+../Core/Src/lan9645/lan9645_mdb.c:111:14:lan9645_mdb_init	4	static
+../Core/Src/lan9645/lan9645_mdb.c:120:14:lan9645_mdb_get_pgid_cfg	40	static
+../Core/Src/lan9645/lan9645_mdb.c:162:14:lan9645_mdb_set_pgid_cfg	40	static
+../Core/Src/lan9645/lan9645_mdb.c:203:14:lan9645_mdb_get_pgid_mask	40	static
+../Core/Src/lan9645/lan9645_mdb.c:241:14:lan9645_mdb_set_pgid_mask	32	static
+../Core/Src/lan9645/lan9645_mdb.c:272:14:lan9645_mdb_get_ipmc_cfg	24	static
+../Core/Src/lan9645/lan9645_mdb.c:293:14:lan9645_mdb_set_ipmc_cfg	24	static
+../Core/Src/lan9645/lan9645_mdb.c:319:14:lan9645_mdb_apply_baseline	24	static

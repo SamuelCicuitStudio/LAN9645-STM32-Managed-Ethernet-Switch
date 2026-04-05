@@ -1,0 +1,7 @@
+../Core/Src/diag/diag_core.c:38:16:diag_core_is_valid_id	2
+../Core/Src/diag/diag_core.c:46:13:diag_core_reset_state	2
+../Core/Src/diag/diag_core.c:68:14:diag_core_init	2
+../Core/Src/diag/diag_core.c:86:14:diag_core_report	6
+../Core/Src/diag/diag_core.c:135:14:diag_core_get_error	4
+../Core/Src/diag/diag_core.c:158:14:diag_core_get_last	4
+../Core/Src/diag/diag_core.c:179:14:diag_core_clear_all	2

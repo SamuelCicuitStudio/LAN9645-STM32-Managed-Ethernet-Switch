@@ -1,0 +1,9 @@
+../Core/Src/app/app_orchestrator.c:53:24:app_orchestrator_lan_irq_diag_severity	3
+../Core/Src/app/app_orchestrator.c:70:13:app_orchestrator_state_name	8
+../Core/Src/app/app_orchestrator.c:89:14:app_orchestrator_init	1
+../Core/Src/app/app_orchestrator.c:107:14:app_orchestrator_set_state	4
+../Core/Src/app/app_orchestrator.c:145:14:app_orchestrator_set_fault	2
+../Core/Src/app/app_orchestrator.c:160:13:app_orchestrator_get_state	2
+../Core/Src/app/app_orchestrator.c:175:14:app_orchestrator_get_snapshot	3
+../Core/Src/app/app_orchestrator.c:196:14:app_orchestrator_lan_irq_init	2
+../Core/Src/app/app_orchestrator.c:217:14:app_orchestrator_lan_irq_step	26

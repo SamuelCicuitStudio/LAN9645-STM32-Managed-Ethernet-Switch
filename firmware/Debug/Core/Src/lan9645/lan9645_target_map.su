@@ -1,0 +1,2 @@
+../Core/Src/lan9645/lan9645_target_map.c:59:14:lan9645_target_map_apply	32	static
+../Core/Src/lan9645/lan9645_target_map.c:97:14:lan9645_target_map_apply_board_defaults	16	static

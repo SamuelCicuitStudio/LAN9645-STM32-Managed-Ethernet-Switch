@@ -1,0 +1,10 @@
+../Core/Src/lan9645/lan9645_ptp.c:16:21:lan9645_ptp_validate_core	4
+../Core/Src/lan9645/lan9645_ptp.c:28:21:lan9645_ptp_validate_port	4
+../Core/Src/lan9645/lan9645_ptp.c:40:21:lan9645_ptp_read_wait_for_ts	5
+../Core/Src/lan9645/lan9645_ptp.c:74:21:lan9645_ptp_write_wait_for_ts	7
+../Core/Src/lan9645/lan9645_ptp.c:117:21:lan9645_ptp_read_global_enable	4
+../Core/Src/lan9645/lan9645_ptp.c:145:21:lan9645_ptp_write_global_enable	6
+../Core/Src/lan9645/lan9645_ptp.c:182:14:lan9645_ptp_init	1
+../Core/Src/lan9645/lan9645_ptp.c:191:14:lan9645_ptp_get_cfg	6
+../Core/Src/lan9645/lan9645_ptp.c:220:14:lan9645_ptp_set_cfg	10
+../Core/Src/lan9645/lan9645_ptp.c:254:14:lan9645_ptp_apply_baseline	3

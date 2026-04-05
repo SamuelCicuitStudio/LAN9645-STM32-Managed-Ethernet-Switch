@@ -1,0 +1,7 @@
+../Core/Src/lan9645/lan9645_mac.c:15:21:lan9645_mac_validate_core	4
+../Core/Src/lan9645/lan9645_mac.c:27:21:lan9645_mac_validate_port	2
+../Core/Src/lan9645/lan9645_mac.c:39:14:lan9645_mac_get_port_cfg	5
+../Core/Src/lan9645/lan9645_mac.c:75:14:lan9645_mac_set_port_cfg	15
+../Core/Src/lan9645/lan9645_mac.c:127:21:lan9645_mac_apply_port	1
+../Core/Src/lan9645/lan9645_mac.c:135:14:lan9645_mac_init	1
+../Core/Src/lan9645/lan9645_mac.c:144:14:lan9645_mac_apply_baseline	5

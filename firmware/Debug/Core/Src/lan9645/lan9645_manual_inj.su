@@ -1,0 +1,6 @@
+../Core/Src/lan9645/lan9645_manual_inj.c:16:21:lan9645_manual_inj_validate_core	16	static
+../Core/Src/lan9645/lan9645_manual_inj.c:28:21:lan9645_manual_inj_validate_port	16	static
+../Core/Src/lan9645/lan9645_manual_inj.c:40:14:lan9645_manual_inj_init	4	static
+../Core/Src/lan9645/lan9645_manual_inj.c:49:14:lan9645_manual_inj_get_cfg	40	static
+../Core/Src/lan9645/lan9645_manual_inj.c:88:14:lan9645_manual_inj_set_cfg	48	static
+../Core/Src/lan9645/lan9645_manual_inj.c:145:14:lan9645_manual_inj_apply_baseline	24	static

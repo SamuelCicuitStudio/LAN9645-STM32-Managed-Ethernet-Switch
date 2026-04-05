@@ -1,0 +1,8 @@
+../Core/Src/ui/ui_service.c:36:16:ui_read_button_raw	2
+../Core/Src/ui/ui_service.c:45:13:ui_apply_outputs	1
+../Core/Src/ui/ui_service.c:57:14:ui_service_init	1
+../Core/Src/ui/ui_service.c:80:14:ui_service_set_status	3
+../Core/Src/ui/ui_service.c:98:14:ui_service_set_error	3
+../Core/Src/ui/ui_service.c:116:14:ui_service_set_run	4
+../Core/Src/ui/ui_service.c:137:9:ui_service_take_button_event	1
+../Core/Src/ui/ui_service.c:149:14:ui_service_poll	9

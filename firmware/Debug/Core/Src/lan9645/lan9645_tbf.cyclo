@@ -1,0 +1,11 @@
+../Core/Src/lan9645/lan9645_tbf.c:19:21:lan9645_tbf_validate_core	4
+../Core/Src/lan9645/lan9645_tbf.c:30:21:lan9645_tbf_validate_cfg_values	9
+../Core/Src/lan9645/lan9645_tbf.c:57:21:lan9645_tbf_rmw_verify	4
+../Core/Src/lan9645/lan9645_tbf.c:94:21:lan9645_tbf_write_verify	4
+../Core/Src/lan9645/lan9645_tbf.c:130:17:lan9645_tbf_queue_se_index	1
+../Core/Src/lan9645/lan9645_tbf.c:138:17:lan9645_tbf_port_se_index	1
+../Core/Src/lan9645/lan9645_tbf.c:146:21:lan9645_tbf_resolve_se_index	5
+../Core/Src/lan9645/lan9645_tbf.c:173:14:lan9645_tbf_init	1
+../Core/Src/lan9645/lan9645_tbf.c:182:14:lan9645_tbf_get_cfg	7
+../Core/Src/lan9645/lan9645_tbf.c:229:14:lan9645_tbf_set_cfg	5
+../Core/Src/lan9645/lan9645_tbf.c:289:14:lan9645_tbf_apply_baseline	7

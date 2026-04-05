@@ -1,0 +1,17 @@
+../Core/Inc/lan9645/lan9645_regs.h:91:24:lan9645_reg_desc_rel_addr	32	static
+../Core/Src/lan9645/lan9645_reg.c:21:13:lan9645_reg_report_spi_failure	40	static
+../Core/Src/lan9645/lan9645_reg.c:52:21:lan9645_reg_check_ctx	16	static
+../Core/Src/lan9645/lan9645_reg.c:72:21:lan9645_reg_resolve_target_index	32	static
+../Core/Src/lan9645/lan9645_reg.c:109:21:lan9645_reg_desc_to_addr	48	static
+../Core/Src/lan9645/lan9645_reg.c:164:14:lan9645_reg_init	16	static
+../Core/Src/lan9645/lan9645_reg.c:186:14:lan9645_reg_set_target_base	32	static
+../Core/Src/lan9645/lan9645_reg.c:220:14:lan9645_reg_clear_target_base	24	static
+../Core/Src/lan9645/lan9645_reg.c:254:14:lan9645_reg_get_target_base	32	static
+../Core/Src/lan9645/lan9645_reg.c:294:14:lan9645_reg_read32	32	static
+../Core/Src/lan9645/lan9645_reg.c:323:14:lan9645_reg_write32	32	static
+../Core/Src/lan9645/lan9645_reg.c:347:14:lan9645_reg_rmw32	32	static
+../Core/Src/lan9645/lan9645_reg.c:373:14:lan9645_reg_wait_field	40	static
+../Core/Src/lan9645/lan9645_reg.c:430:14:lan9645_reg_read32_desc	40	static
+../Core/Src/lan9645/lan9645_reg.c:471:14:lan9645_reg_write32_desc	40	static
+../Core/Src/lan9645/lan9645_reg.c:509:14:lan9645_reg_rmw32_desc	40	static
+../Core/Src/lan9645/lan9645_reg.c:550:14:lan9645_reg_wait32_desc	40	static

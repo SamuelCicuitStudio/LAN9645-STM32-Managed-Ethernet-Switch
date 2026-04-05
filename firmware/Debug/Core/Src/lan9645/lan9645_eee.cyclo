@@ -1,0 +1,8 @@
+../Core/Src/lan9645/lan9645_eee.c:18:21:lan9645_eee_validate_core	4
+../Core/Src/lan9645/lan9645_eee.c:30:21:lan9645_eee_validate_port	2
+../Core/Src/lan9645/lan9645_eee.c:42:21:lan9645_eee_rmw_verify	4
+../Core/Src/lan9645/lan9645_eee.c:80:14:lan9645_eee_get_port_cfg	5
+../Core/Src/lan9645/lan9645_eee.c:124:14:lan9645_eee_set_port_cfg	6
+../Core/Src/lan9645/lan9645_eee.c:167:21:lan9645_eee_apply_port_baseline	1
+../Core/Src/lan9645/lan9645_eee.c:175:14:lan9645_eee_init	1
+../Core/Src/lan9645/lan9645_eee.c:184:14:lan9645_eee_apply_baseline	5
