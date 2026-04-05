@@ -529,6 +529,49 @@ F6 software status:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.7) F7 Progress Snapshot (April 5, 2026)
+
+F7 objective:
+- close documentation and traceability for F1..F6 and freeze the pending hardware backlog.
+
+Implemented now in planning artifacts:
+- `Design/firmware/LAN9645_library_implementation_plan.md`
+  - F1..F6 software evidence is now locked in one place (sections 2.6.1 .. 2.6.6).
+  - CLI contract is explicitly frozen with deterministic result envelope schema.
+  - pending board work is explicitly listed and kept `not performed`.
+
+F1..F6 traceability matrix (software closure):
+
+| Feature | Primary firmware files | Locked CLI evidence | Locked diagnostics evidence | Software status | Hardware status |
+|---|---|---|---|---|---|
+| F1 SPI telemetry | `lan9645_spi.h/.c`, `cli_core.c` | `spi stats`, `spi stats clear`, `status all` | `DIAG_EVT_LAN_SPI_TIMEOUT`, `DIAG_EVT_LAN_SPI_IFSTAT` | complete | not performed |
+| F2 Port control | `lan9645_core.h/.c`, `cli_core.c` | `port admin`, `port mode`, `port show` | `DIAG_EVT_LAN_PORT_CFG_FAIL` | complete | not performed |
+| F3 VLAN baseline | `lan9645_vlan.h/.c`, `cli_core.c` | `vlan set`, `vlan show` | `DIAG_EVT_LAN_VLAN_CFG_FAIL` | complete | not performed |
+| F4 Counters | `lan9645_stats.h/.c`, `cli_core.c` | `cnt read`, `cnt clear` | `DIAG_EVT_LAN_CNT_OP_FAIL` | complete | not performed |
+| F5 IRQ contract | `lan9645_core.h/.c`, `main.c`, `cli_core.c` | `irq show`, `irq ack`, `irq clear` | `DIAG_EVT_LAN_IRQ_CAUSE`, `DIAG_EVT_LAN_IRQ_ACK_FAIL`, `DIAG_EVT_LAN_DROP_COUNTER_ALERT`, `DIAG_EVT_LAN_IRQ_STUCK` | complete | not performed |
+| F6 CLI envelope | `cli_core.c` | `cli contract` + fixed `cli result=...` line per command | explicit status-code mapping (`APP_*`) in CLI envelope | complete | not performed |
+
+Locked board-validation backlog (all pending):
+
+| ID | Validation item | Evidence command(s) | Status |
+|---|---|---|---|
+| HV-1 | SPI transport stability under repeated access | `sanity spi`, `spi stats` | not performed |
+| HV-2 | Target-base map confirmation on real hardware | `reg read`, `lan id`, selected descriptor reads | not performed |
+| HV-3 | Managed profile register confirmation | `lan profile apply`, `lan check` | not performed |
+| HV-4 | IRQ line and acknowledge behavior under real events | `irq show`, `irq ack`, `status errors` | not performed |
+| HV-5 | Counter read/clear behavior on live traffic | `cnt read`, `cnt clear` | not performed |
+| HV-6 | VLAN forwarding behavior for required masks | `vlan set`, `vlan show`, ping traffic checks | not performed |
+| HV-7 | Copper port0 ping matrix execution | `bringup check`, host ping test on copper0 | not performed |
+| HV-8 | Copper port1 ping matrix execution | `bringup check`, host ping test on copper1 | not performed |
+| HV-9 | SFP/SerDes path 0 ping matrix execution | `bringup check`, host ping test on serdes0 | not performed |
+| HV-10 | SFP/SerDes path 1 ping matrix execution | `bringup check`, host ping test on serdes1 | not performed |
+
+F7 software status:
+- **Software complete (traceability closure)**
+
+Hardware validation status:
+- **all pending rows remain `not performed`**.
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)
@@ -543,11 +586,11 @@ Hardware validation status:
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Deferred (not performed on hardware) | software progression assumes expected pass path; board execution pending |
-| S9 | Managed BSP feature closure (F1..F7) | In progress | precise feature sequence defined in section 2.6; implementation continues without board |
+| S9 | Managed BSP feature closure (F1..F7) | Completed (software closure; hardware pending) | F1..F7 snapshots and traceability matrix are locked in section 2.6; hardware backlog listed explicitly as `not performed` |
 
 Locked next section:
-- continue software-side BSP expansion while hardware test backlog remains explicit.
 - execute `S8` ping matrix and target-map hardware validation closure when board access returns.
+- close Phase 0 target-map validation gate with captured board evidence.
 
 ---
 
