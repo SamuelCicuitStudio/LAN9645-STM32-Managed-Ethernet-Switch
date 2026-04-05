@@ -11,7 +11,10 @@ extern "C" {
 #include "lan9645/lan9645_core.h"
 
 typedef struct {
+  uint32_t chip_id;
   uint32_t feat_disable;
+  uint32_t ext_cpu_cfg;
+  uint32_t ports_enabled_mask;
 } lan9645_profile_result_t;
 
 app_status_t lan9645_profile_managed_rmii1_apply(

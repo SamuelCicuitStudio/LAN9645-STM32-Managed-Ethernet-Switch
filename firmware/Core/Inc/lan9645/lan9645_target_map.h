@@ -22,11 +22,7 @@ app_status_t lan9645_target_map_apply(
   uint32_t count
 );
 
-/*
- * Applies board defaults for target base addresses.
- * These offsets are provisional and must be verified against the
- * final LAN9645 memory map used by your hardware integration.
- */
+/* Applies Linux MFD-aligned LAN9645x target base addresses for active targets. */
 app_status_t lan9645_target_map_apply_board_defaults(lan9645_reg_t *reg);
 
 #ifdef __cplusplus

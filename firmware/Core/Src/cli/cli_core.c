@@ -7,18 +7,29 @@
 #include <string.h>
 
 #include "app/app_orchestrator.h"
+#include "cli/cli_ingress.h"
 #include "diag/diag_core.h"
 #include "diag/diag_router.h"
+#include "ethernetif.h"
+#include "lan9645/lan9645_profile_managed_rmii1.h"
 #include "lan9645/lan9645_reg.h"
 #include "lan9645/lan9645_runtime.h"
 #include "lan9645/lan9645_user_phy_adapter.h"
+#include "lwip.h"
 
 #define CLI_MAX_LINE_LEN      (160u)
 #define CLI_MAX_TOKENS        (8u)
+#define CLI_LAN_CHECK_PORT0    (0u)
+#define CLI_LAN_CHECK_PORT1    (1u)
+#define CLI_LAN_CHECK_CPU_PORT (8u)
+#define CLI_LAN_CHECK_SPEED100 (2u)
+#define CLI_LAN_CHECK_CPU_DEV_IRQ_MASK (0x1FFu)
 
 static cli_core_state_t s_cli = {0};
 static lan9645_user_phy_adapter_t s_cli_phy = {0};
 static uint8_t s_cli_phy_ready = 0u;
+
+static app_status_t cli_cmd_spi_status(void);
 
 static uint8_t cli_eq(const char *a, const char *b)
 {
@@ -76,6 +87,40 @@ static app_status_t cli_parse_u32(const char *s, uint32_t *out)
   return APP_OK;
 }
 
+static void cli_irq_print_ana_events(uint32_t ana_anevents)
+{
+  if (ana_anevents == 0u) {
+    (void)cli_writef("irq ana events=none\r\n");
+    return;
+  }
+
+  (void)cli_writef("irq ana events=0x%08lX\r\n", (unsigned long)ana_anevents);
+  if ((ana_anevents & LAN9645_BIT(24)) != 0u) {
+    (void)cli_writef("  - AUTOAGE\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(23)) != 0u) {
+    (void)cli_writef("  - LEARN_DROP\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(22)) != 0u) {
+    (void)cli_writef("  - AGED_ENTRY\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(21)) != 0u) {
+    (void)cli_writef("  - CPU_LEARN_FAILED\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(20)) != 0u) {
+    (void)cli_writef("  - AUTO_LEARN_FAILED\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(16)) != 0u) {
+    (void)cli_writef("  - DROPPED\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(13)) != 0u) {
+    (void)cli_writef("  - VLAN_DISCARD\r\n");
+  }
+  if ((ana_anevents & LAN9645_BIT(12)) != 0u) {
+    (void)cli_writef("  - FWD_DISCARD\r\n");
+  }
+}
+
 static const char *cli_diag_evt_to_str(diag_event_id_t id)
 {
   switch (id) {
@@ -87,9 +132,52 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "LAN_SERDES0_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES1_LINK_TIMEOUT: return "LAN_SERDES1_LINK_TIMEOUT";
     case DIAG_EVT_LAN_IRQ_STUCK: return "LAN_IRQ_STUCK";
+    case DIAG_EVT_LAN_IRQ_CAUSE: return "LAN_IRQ_CAUSE";
+    case DIAG_EVT_LAN_IRQ_ACK_FAIL: return "LAN_IRQ_ACK_FAIL";
     case DIAG_EVT_LAN_DROP_COUNTER_ALERT: return "LAN_DROP_COUNTER_ALERT";
     default: return "UNKNOWN";
   }
+}
+
+static const char *cli_owner_to_str(app_owner_t owner)
+{
+  switch (owner) {
+    case APP_OWNER_USB: return "usb";
+    case APP_OWNER_UART4: return "uart4";
+    case APP_OWNER_NONE:
+    default:
+      return "none";
+  }
+}
+
+static const char *cli_eth_speed_to_str(uint32_t speed)
+{
+  if (speed == ETH_SPEED_100M) {
+    return "100M";
+  }
+  if (speed == ETH_SPEED_10M) {
+    return "10M";
+  }
+  return "unknown";
+}
+
+static const char *cli_eth_duplex_to_str(uint32_t duplex)
+{
+  if (duplex == ETH_FULLDUPLEX_MODE) {
+    return "full";
+  }
+  if (duplex == ETH_HALFDUPLEX_MODE) {
+    return "half";
+  }
+  return "unknown";
+}
+
+static uint8_t cli_ipv4_is_zero(const char *ip)
+{
+  if (ip == NULL) {
+    return 1u;
+  }
+  return (strcmp(ip, "0.0.0.0") == 0) ? 1u : 0u;
 }
 
 static app_status_t cli_ensure_phy(void)
@@ -128,14 +216,174 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  state show\r\n");
   (void)cli_writef("  status all\r\n");
   (void)cli_writef("  status errors\r\n");
+  (void)cli_writef("  bringup check\r\n");
   (void)cli_writef("  diag clear\r\n");
   (void)cli_writef("  link show [0|1]\r\n");
   (void)cli_writef("  phy show [0|1]\r\n");
+  (void)cli_writef("  lan id\r\n");
+  (void)cli_writef("  lan check\r\n");
+  (void)cli_writef("  lan profile apply\r\n");
+  (void)cli_writef("  lan preflight\r\n");
   (void)cli_writef("  port show\r\n");
   (void)cli_writef("  port select <0|1>\r\n");
+  (void)cli_writef("  eth show\r\n");
+  (void)cli_writef("  net show\r\n");
+  (void)cli_writef("  net check\r\n");
+  (void)cli_writef("  serial show\r\n");
+  (void)cli_writef("  irq show\r\n");
+  (void)cli_writef("  irq clear\r\n");
+  (void)cli_writef("  irq ack\r\n");
+  (void)cli_writef("  spi status\r\n");
   (void)cli_writef("  reg read <0xADDR>\r\n");
   (void)cli_writef("  reg write <0xADDR> <0xVALUE>\r\n");
   (void)cli_writef("  sanity spi <0xADDR> [count]\r\n");
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_eth_show(void)
+{
+  ethernetif_runtime_state_t eth = {0};
+  app_status_t st = ethernetif_get_runtime_state(&eth);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "eth link=%u started=%u user_phy=%u phy_state=%ld speed=%s duplex=%s t=%lums\r\n",
+    (unsigned int)eth.link_up,
+    (unsigned int)eth.eth_started,
+    (unsigned int)eth.user_phy_ready,
+    (long)eth.last_phy_status,
+    cli_eth_speed_to_str(eth.mac_speed),
+    cli_eth_duplex_to_str(eth.mac_duplex),
+    (unsigned long)eth.sample_tick_ms
+  );
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_net_show(void)
+{
+  lwip_runtime_state_t net = {0};
+  app_status_t st = lwip_get_runtime_state(&net);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "net up=%u link=%u default=%u mtu=%u flags=0x%04X t=%lums\r\n",
+    (unsigned int)net.netif_up,
+    (unsigned int)net.link_up,
+    (unsigned int)net.is_default,
+    (unsigned int)net.mtu,
+    (unsigned int)net.flags,
+    (unsigned long)net.sample_tick_ms
+  );
+  (void)cli_writef(
+    "net ip=%s mask=%s gw=%s mac=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
+    net.ip,
+    net.netmask,
+    net.gateway,
+    (unsigned int)net.mac[0],
+    (unsigned int)net.mac[1],
+    (unsigned int)net.mac[2],
+    (unsigned int)net.mac[3],
+    (unsigned int)net.mac[4],
+    (unsigned int)net.mac[5]
+  );
+
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_net_check(void)
+{
+  lwip_runtime_state_t net = {0};
+  ethernetif_runtime_state_t eth = {0};
+  uint8_t pass = 1u;
+  app_status_t st = lwip_get_runtime_state(&net);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = ethernetif_get_runtime_state(&eth);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if (net.netif_up == 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check netif_up=%u %s\r\n", (unsigned int)net.netif_up, (net.netif_up != 0u) ? "OK" : "FAIL");
+
+  if (net.link_up == 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check link_up=%u %s\r\n", (unsigned int)net.link_up, (net.link_up != 0u) ? "OK" : "FAIL");
+
+  if (net.is_default == 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check default=%u %s\r\n", (unsigned int)net.is_default, (net.is_default != 0u) ? "OK" : "FAIL");
+
+  if (cli_ipv4_is_zero(net.ip) != 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check ip=%s %s\r\n", net.ip, (cli_ipv4_is_zero(net.ip) == 0u) ? "OK" : "FAIL");
+
+  if (cli_ipv4_is_zero(net.netmask) != 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check mask=%s %s\r\n", net.netmask, (cli_ipv4_is_zero(net.netmask) == 0u) ? "OK" : "FAIL");
+
+  if (eth.user_phy_ready == 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check user_phy_ready=%u %s\r\n", (unsigned int)eth.user_phy_ready, (eth.user_phy_ready != 0u) ? "OK" : "FAIL");
+
+  if (eth.eth_started == 0u) {
+    pass = 0u;
+  }
+  (void)cli_writef("net check eth_started=%u %s\r\n", (unsigned int)eth.eth_started, (eth.eth_started != 0u) ? "OK" : "FAIL");
+
+  (void)cli_writef("net check result=%s\r\n", (pass != 0u) ? "PASS" : "FAIL");
+  return (pass != 0u) ? APP_OK : APP_EIO;
+}
+
+static app_status_t cli_cmd_serial_show(void)
+{
+  diag_router_state_t router = {0};
+  cli_ingress_stats_t ingress = {0};
+  app_status_t st = APP_OK;
+
+  st = diag_router_get_state(&router);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = cli_ingress_get_stats(&ingress);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "serial owner=%s usb_ready=%u uart_ready=%u mirror=%u bridge=%u\r\n",
+    cli_owner_to_str(router.owner),
+    (unsigned int)router.usb_ready,
+    (unsigned int)router.uart_ready,
+    (unsigned int)router.mirror_when_none,
+    (unsigned int)router.bridge_usb_uart_on
+  );
+
+  (void)cli_writef(
+    "serial ingress bytes_usb=%lu bytes_uart4=%lu lines_q=%lu lines_exec=%lu line_ovf=%lu queue_ovf=%lu cmd_fail=%lu queue=%u/%u\r\n",
+    (unsigned long)ingress.bytes_usb,
+    (unsigned long)ingress.bytes_uart4,
+    (unsigned long)ingress.lines_queued,
+    (unsigned long)ingress.lines_executed,
+    (unsigned long)ingress.line_overflow_count,
+    (unsigned long)ingress.queue_overflow_count,
+    (unsigned long)ingress.command_fail_count,
+    (unsigned int)ingress.queue_count,
+    (unsigned int)ingress.queue_depth
+  );
+
   return APP_OK;
 }
 
@@ -282,6 +530,7 @@ static app_status_t cli_cmd_status_all(void)
   lan9645_core_t *core = lan9645_runtime_get_core();
   diag_event_t last = {0};
   app_orchestrator_snapshot_t snap = {0};
+  lan9645_irq_state_t irq_state = {0};
 
   (void)cli_writef("status active_port=%u\r\n", (unsigned int)s_cli.active_port);
   if (app_orchestrator_get_snapshot(&snap) == APP_OK) {
@@ -300,6 +549,7 @@ static app_status_t cli_cmd_status_all(void)
 
   if ((core != NULL) && (core->initialized != 0u)) {
     uint32_t feat = 0u;
+    (void)cli_cmd_spi_status();
     if (lan9645_core_read_feat_disable(core, &feat) == APP_OK) {
       (void)cli_writef("lan feat_disable=0x%08lX\r\n", (unsigned long)feat);
     } else {
@@ -308,6 +558,20 @@ static app_status_t cli_cmd_status_all(void)
   } else {
     (void)cli_writef("lan core not ready\r\n");
   }
+
+  if (lan9645_runtime_irq_get(&irq_state) == APP_OK) {
+    (void)cli_writef(
+      "irq line=%u edges=%lu stuck=%u timeout=%lu last_edge_ms=%lu\r\n",
+      (unsigned int)irq_state.line_high,
+      (unsigned long)irq_state.edge_count,
+      (unsigned int)irq_state.stuck_latched,
+      (unsigned long)irq_state.stuck_timeout_ms,
+      (unsigned long)irq_state.last_edge_ms
+    );
+  }
+
+  (void)cli_cmd_eth_show();
+  (void)cli_cmd_net_show();
 
   if (diag_core_get_last(&last) == APP_OK) {
     (void)cli_writef(
@@ -324,6 +588,89 @@ static app_status_t cli_cmd_status_all(void)
 
   (void)cli_cmd_link_show(s_cli.active_port);
   return cli_cmd_status_errors();
+}
+
+static app_status_t cli_cmd_irq_show(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_irq_state_t irq_state = {0};
+  lan9645_core_irq_regs_t irq_regs = {0};
+  app_status_t st = lan9645_runtime_irq_get(&irq_state);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "irq line=%u edges=%lu stuck=%u timeout=%lu last_edge_ms=%lu high_since_ms=%lu\r\n",
+    (unsigned int)irq_state.line_high,
+    (unsigned long)irq_state.edge_count,
+    (unsigned int)irq_state.stuck_latched,
+    (unsigned long)irq_state.stuck_timeout_ms,
+    (unsigned long)irq_state.last_edge_ms,
+    (unsigned long)irq_state.high_since_ms
+  );
+
+  if ((core != NULL) && (core->initialized != 0u) && (core->reg != NULL)) {
+    st = lan9645_core_get_irq_regs(core, &irq_regs);
+    if (st == APP_OK) {
+      (void)cli_writef(
+        "irq regs ana_anaintr=0x%08lX ana_anevents=0x%08lX intr_ena=0x%08lX intr_ident=0x%08lX intr_ident1=0x%08lX dev_intr_ena=0x%08lX dev_intr_ident=0x%08lX\r\n",
+        (unsigned long)irq_regs.ana_anaintr,
+        (unsigned long)irq_regs.ana_anevents,
+        (unsigned long)irq_regs.intr_ena,
+        (unsigned long)irq_regs.intr_ident,
+        (unsigned long)irq_regs.intr_ident1,
+        (unsigned long)irq_regs.dev_intr_ena,
+        (unsigned long)irq_regs.dev_intr_ident
+      );
+      (void)cli_writef(
+        "irq ana intr=%lu intr_ena=%lu dev_mask pending=0x%03lX enabled=0x%03lX\r\n",
+        (unsigned long)LAN9645_FIELD_GET(LAN9645_ANA_ANAINTR_INTR, irq_regs.ana_anaintr),
+        (unsigned long)LAN9645_FIELD_GET(LAN9645_ANA_ANAINTR_INTR_ENA, irq_regs.ana_anaintr),
+        (unsigned long)LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ident),
+        (unsigned long)LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ena)
+      );
+      cli_irq_print_ana_events(irq_regs.ana_anevents);
+    } else {
+      (void)cli_writef("irq regs unavailable st=%ld\r\n", (long)st);
+    }
+  }
+
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_irq_clear(void)
+{
+  app_status_t st = lan9645_runtime_irq_clear();
+  if (st != APP_OK) {
+    return st;
+  }
+  (void)cli_writef("irq counters cleared\r\n");
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_irq_ack(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_core_irq_regs_t irq_regs = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_core_get_irq_regs(core, &irq_regs);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_core_ack_irq(core, irq_regs.ana_anevents);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef("irq ack ana_anevents=0x%08lX\r\n", (unsigned long)irq_regs.ana_anevents);
+  return APP_OK;
 }
 
 static app_status_t cli_cmd_reg_read(uint32_t addr)
@@ -420,6 +767,300 @@ static app_status_t cli_cmd_sanity_spi(uint32_t addr, uint32_t count)
   return APP_OK;
 }
 
+static app_status_t cli_cmd_spi_status(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  uint32_t if_ctrl = 0u;
+  uint32_t if_cfgstat = 0u;
+  uint32_t spi_hz = 0u;
+  uint8_t padding = 0u;
+  uint8_t ready = 0u;
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_core_get_spi_status(core, NULL, NULL, &padding, &spi_hz, &ready);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if (ready == 0u) {
+    (void)cli_writef(
+      "spi status ready=0 spi_hz=%lu padding=%u\r\n",
+      (unsigned long)spi_hz,
+      (unsigned int)padding
+    );
+    return APP_OK;
+  }
+
+  st = lan9645_core_get_spi_status(core, &if_ctrl, &if_cfgstat, &padding, &spi_hz, &ready);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "spi status ready=%u spi_hz=%lu padding=%u if_ctrl=0x%08lX if_cfgstat=0x%08lX if_cfg=%lu if_stat=%lu\r\n",
+    (unsigned int)ready,
+    (unsigned long)spi_hz,
+    (unsigned int)padding,
+    (unsigned long)if_ctrl,
+    (unsigned long)if_cfgstat,
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_IF_CFGSTAT_IF_CFG, if_cfgstat),
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_IF_CFGSTAT_IF_STAT, if_cfgstat)
+  );
+
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_lan_id(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  uint32_t chip_id = 0u;
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_core_read_chip_id(core, &chip_id);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "lan id chip=0x%08lX rev=%lu part=0x%04lX mfg=0x%03lX one=%lu\r\n",
+    (unsigned long)chip_id,
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_CHIP_ID_REV_ID, chip_id),
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_CHIP_ID_PART_ID, chip_id),
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_CHIP_ID_MFG_ID, chip_id),
+    (unsigned long)LAN9645_FIELD_GET(LAN9645_GCB_CHIP_ID_ONE, chip_id)
+  );
+
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_lan_check_port(lan9645_core_t *core, uint32_t port)
+{
+  uint32_t v = 0u;
+  uint32_t speed = 0u;
+  uint8_t ok = 1u;
+  app_status_t st = APP_OK;
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_QSYS_SW_PORT_MODE, 0u, 0u, port, &v);
+  if (st != APP_OK) {
+    return st;
+  }
+  if ((v & LAN9645_QSYS_SW_PORT_MODE_PORT_ENA) == 0u) {
+    ok = 0u;
+  }
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_DEV_CLOCK_CFG, 0u, port, 0u, &v);
+  if (st != APP_OK) {
+    return st;
+  }
+  speed = LAN9645_FIELD_GET(LAN9645_DEV_CLOCK_CFG_LINK_SPEED, v);
+  if ((speed != CLI_LAN_CHECK_SPEED100) ||
+      ((v & (LAN9645_DEV_CLOCK_CFG_MAC_TX_RST |
+             LAN9645_DEV_CLOCK_CFG_MAC_RX_RST |
+             LAN9645_DEV_CLOCK_CFG_PCS_TX_RST |
+             LAN9645_DEV_CLOCK_CFG_PCS_RX_RST |
+             LAN9645_DEV_CLOCK_CFG_PORT_RST |
+             LAN9645_DEV_CLOCK_CFG_PHY_RST)) != 0u)) {
+    ok = 0u;
+  }
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_DEV_MAC_MODE_CFG, 0u, port, 0u, &v);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (((v & LAN9645_DEV_MAC_MODE_CFG_FDX_ENA) == 0u) ||
+      ((v & LAN9645_DEV_MAC_MODE_CFG_GIGA_MODE_ENA) != 0u)) {
+    ok = 0u;
+  }
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_DEV_MAC_ENA_CFG, 0u, port, 0u, &v);
+  if (st != APP_OK) {
+    return st;
+  }
+  if ((v & (LAN9645_DEV_MAC_ENA_CFG_TX_ENA | LAN9645_DEV_MAC_ENA_CFG_RX_ENA)) !=
+      (LAN9645_DEV_MAC_ENA_CFG_TX_ENA | LAN9645_DEV_MAC_ENA_CFG_RX_ENA)) {
+    ok = 0u;
+  }
+
+  (void)cli_writef(
+    "lan check port%lu %s\r\n",
+    (unsigned long)port,
+    (ok != 0u) ? "OK" : "FAIL"
+  );
+
+  return (ok != 0u) ? APP_OK : APP_EIO;
+}
+
+static app_status_t cli_cmd_lan_check(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  uint32_t chip_id = 0u;
+  uint32_t ext_cpu_cfg = 0u;
+  uint32_t ana_anaintr = 0u;
+  uint32_t cpu_dev_intr_ena = 0u;
+  uint8_t pass = 1u;
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = cli_cmd_spi_status();
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_core_read_chip_id(core, &chip_id);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef("lan check chip_id=0x%08lX\r\n", (unsigned long)chip_id);
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_QSYS_EXT_CPU_CFG, 0u, 0u, 0u, &ext_cpu_cfg);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if ((LAN9645_FIELD_GET(LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT, ext_cpu_cfg) != CLI_LAN_CHECK_CPU_PORT) ||
+      (LAN9645_FIELD_GET(LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK, ext_cpu_cfg) != 0xFFu) ||
+      ((ext_cpu_cfg & LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA) == 0u) ||
+      ((ext_cpu_cfg & LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA) == 0u)) {
+    pass = 0u;
+    (void)cli_writef("lan check ext_cpu_cfg FAIL val=0x%08lX\r\n", (unsigned long)ext_cpu_cfg);
+  } else {
+    (void)cli_writef("lan check ext_cpu_cfg OK val=0x%08lX\r\n", (unsigned long)ext_cpu_cfg);
+  }
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_ANA_ANAINTR, 0u, 0u, 0u, &ana_anaintr);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if ((ana_anaintr & LAN9645_ANA_ANAINTR_INTR_ENA) == 0u) {
+    pass = 0u;
+    (void)cli_writef("lan check anaintr FAIL val=0x%08lX\r\n", (unsigned long)ana_anaintr);
+  } else {
+    (void)cli_writef("lan check anaintr OK val=0x%08lX\r\n", (unsigned long)ana_anaintr);
+  }
+
+  st = lan9645_reg_read32_desc(core->reg, &LAN9645_REG_CPU_DEV_INTR_ENA, 0u, 0u, 0u, &cpu_dev_intr_ena);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if (LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, cpu_dev_intr_ena) != CLI_LAN_CHECK_CPU_DEV_IRQ_MASK) {
+    pass = 0u;
+    (void)cli_writef("lan check cpu_dev_intr_ena FAIL val=0x%08lX\r\n", (unsigned long)cpu_dev_intr_ena);
+  } else {
+    (void)cli_writef("lan check cpu_dev_intr_ena OK val=0x%08lX\r\n", (unsigned long)cpu_dev_intr_ena);
+  }
+
+  if (cli_cmd_lan_check_port(core, CLI_LAN_CHECK_PORT0) != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_lan_check_port(core, CLI_LAN_CHECK_PORT1) != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_lan_check_port(core, CLI_LAN_CHECK_CPU_PORT) != APP_OK) {
+    pass = 0u;
+  }
+
+  (void)cli_writef("lan check result=%s\r\n", (pass != 0u) ? "PASS" : "FAIL");
+  return (pass != 0u) ? APP_OK : APP_EIO;
+}
+
+static app_status_t cli_cmd_lan_profile_apply(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_profile_result_t profile = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_profile_managed_rmii1_apply(core, &profile);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "lan profile apply OK chip=0x%08lX feat=0x%08lX ext_cpu_cfg=0x%08lX ports_mask=0x%08lX\r\n",
+    (unsigned long)profile.chip_id,
+    (unsigned long)profile.feat_disable,
+    (unsigned long)profile.ext_cpu_cfg,
+    (unsigned long)profile.ports_enabled_mask
+  );
+
+  return APP_OK;
+}
+
+static app_status_t cli_cmd_lan_preflight(void)
+{
+  app_status_t st = APP_OK;
+  uint8_t pass = 1u;
+
+  st = cli_cmd_spi_status();
+  if (st != APP_OK) {
+    pass = 0u;
+  }
+
+  st = cli_cmd_lan_id();
+  if (st != APP_OK) {
+    pass = 0u;
+  }
+
+  st = cli_cmd_lan_check();
+  if (st != APP_OK) {
+    pass = 0u;
+  }
+
+  st = cli_cmd_link_show(0u);
+  if (st != APP_OK) {
+    pass = 0u;
+  }
+
+  st = cli_cmd_link_show(1u);
+  if (st != APP_OK) {
+    pass = 0u;
+  }
+
+  (void)cli_writef("lan preflight result=%s\r\n", (pass != 0u) ? "PASS" : "FAIL");
+  return (pass != 0u) ? APP_OK : APP_EIO;
+}
+
+static app_status_t cli_cmd_bringup_check(void)
+{
+  uint8_t pass = 1u;
+
+  if (cli_cmd_serial_show() != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_eth_show() != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_net_show() != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_net_check() != APP_OK) {
+    pass = 0u;
+  }
+  if (cli_cmd_lan_preflight() != APP_OK) {
+    pass = 0u;
+  }
+
+  (void)cli_writef("bringup check result=%s\r\n", (pass != 0u) ? "PASS" : "FAIL");
+  return (pass != 0u) ? APP_OK : APP_EIO;
+}
+
 static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
 {
   if ((tokens == NULL) || (ntok == 0u)) {
@@ -441,6 +1082,13 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
       return cli_cmd_status_errors();
     }
     return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "bringup") != 0u) {
+    if ((ntok < 2u) || (cli_eq(tokens[1], "check") == 0u)) {
+      return APP_EINVAL;
+    }
+    return cli_cmd_bringup_check();
   }
 
   if (cli_eq(tokens[0], "state") != 0u) {
@@ -493,6 +1141,28 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
     return cli_cmd_phy_show(port);
   }
 
+  if (cli_eq(tokens[0], "lan") != 0u) {
+    if (ntok < 2u) {
+      return APP_EINVAL;
+    }
+    if (cli_eq(tokens[1], "id") != 0u) {
+      return cli_cmd_lan_id();
+    }
+    if (cli_eq(tokens[1], "check") != 0u) {
+      return cli_cmd_lan_check();
+    }
+    if (cli_eq(tokens[1], "profile") != 0u) {
+      if ((ntok >= 3u) && (cli_eq(tokens[2], "apply") != 0u)) {
+        return cli_cmd_lan_profile_apply();
+      }
+      return APP_EINVAL;
+    }
+    if (cli_eq(tokens[1], "preflight") != 0u) {
+      return cli_cmd_lan_preflight();
+    }
+    return APP_EINVAL;
+  }
+
   if (cli_eq(tokens[0], "port") != 0u) {
     if (ntok < 2u) {
       return APP_EINVAL;
@@ -520,6 +1190,56 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
       return APP_OK;
     }
     return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "spi") != 0u) {
+    if ((ntok < 2u) || (cli_eq(tokens[1], "status") == 0u)) {
+      return APP_EINVAL;
+    }
+    return cli_cmd_spi_status();
+  }
+
+  if (cli_eq(tokens[0], "eth") != 0u) {
+    if ((ntok < 2u) || (cli_eq(tokens[1], "show") == 0u)) {
+      return APP_EINVAL;
+    }
+    return cli_cmd_eth_show();
+  }
+
+  if (cli_eq(tokens[0], "net") != 0u) {
+    if (ntok < 2u) {
+      return APP_EINVAL;
+    }
+    if (cli_eq(tokens[1], "show") != 0u) {
+      return cli_cmd_net_show();
+    }
+    if (cli_eq(tokens[1], "check") != 0u) {
+      return cli_cmd_net_check();
+    }
+    return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "irq") != 0u) {
+    if (ntok < 2u) {
+      return APP_EINVAL;
+    }
+    if (cli_eq(tokens[1], "show") != 0u) {
+      return cli_cmd_irq_show();
+    }
+    if (cli_eq(tokens[1], "clear") != 0u) {
+      return cli_cmd_irq_clear();
+    }
+    if (cli_eq(tokens[1], "ack") != 0u) {
+      return cli_cmd_irq_ack();
+    }
+    return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "serial") != 0u) {
+    if ((ntok < 2u) || (cli_eq(tokens[1], "show") == 0u)) {
+      return APP_EINVAL;
+    }
+    return cli_cmd_serial_show();
   }
 
   if (cli_eq(tokens[0], "reg") != 0u) {

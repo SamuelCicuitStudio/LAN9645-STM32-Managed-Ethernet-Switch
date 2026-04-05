@@ -23,6 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ethernetif.h"
 #include "diag/diag_core.h"
 #include "diag/diag_router.h"
 #include "app/app_orchestrator.h"
@@ -46,6 +47,32 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define LAN9645_SPI_CLOCK_HZ (35000000u)
+#define LAN9645_IRQ_STUCK_TIMEOUT_MS (200u)
+#define LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS (250u)
+#define LAN9645_ANA_EVT_LLCT_PORT_ERR      LAN9645_BIT(30u)
+#define LAN9645_ANA_EVT_CPU_LEARN_FAILED   LAN9645_BIT(21u)
+#define LAN9645_ANA_EVT_AUTO_LEARN_FAILED  LAN9645_BIT(20u)
+#define LAN9645_ANA_EVT_LEARN_DROP         LAN9645_BIT(23u)
+#define LAN9645_ANA_EVT_AGED_ENTRY         LAN9645_BIT(22u)
+#define LAN9645_ANA_EVT_DROPPED            LAN9645_BIT(16u)
+#define LAN9645_ANA_EVT_CLASSIFIED_DROP    LAN9645_BIT(15u)
+#define LAN9645_ANA_EVT_VLAN_DISCARD       LAN9645_BIT(13u)
+#define LAN9645_ANA_EVT_FWD_DISCARD        LAN9645_BIT(12u)
+#define LAN9645_ANA_EVT_SEQ_GEN_ERR_0      LAN9645_BIT(1u)
+#define LAN9645_ANA_EVT_SEQ_GEN_ERR_1      LAN9645_BIT(0u)
+#define LAN9645_ANA_EVT_ERR_MASK           (LAN9645_ANA_EVT_LLCT_PORT_ERR | \
+                                            LAN9645_ANA_EVT_CPU_LEARN_FAILED | \
+                                            LAN9645_ANA_EVT_AUTO_LEARN_FAILED | \
+                                            LAN9645_ANA_EVT_SEQ_GEN_ERR_0 | \
+                                            LAN9645_ANA_EVT_SEQ_GEN_ERR_1)
+#define LAN9645_ANA_EVT_DROP_MASK          (LAN9645_ANA_EVT_DROPPED | \
+                                            LAN9645_ANA_EVT_CLASSIFIED_DROP | \
+                                            LAN9645_ANA_EVT_VLAN_DISCARD | \
+                                            LAN9645_ANA_EVT_FWD_DISCARD | \
+                                            LAN9645_ANA_EVT_LEARN_DROP)
+#define LAN9645_ANA_EVT_WARN_MASK          (LAN9645_ANA_EVT_DROP_MASK | \
+                                            LAN9645_ANA_EVT_AGED_ENTRY)
 
 /* USER CODE END PD */
 
@@ -70,6 +97,13 @@ UART_HandleTypeDef huart4;
 static lan9645_spi_t g_lan_spi;
 static lan9645_reg_t g_lan_reg;
 static lan9645_core_t g_lan_core;
+static uint32_t g_lan_irq_last_edge_count = 0u;
+static uint32_t g_lan_irq_last_ana_anaintr = 0u;
+static uint32_t g_lan_irq_last_ana_anevents = 0u;
+static uint32_t g_lan_irq_last_intr_ident = 0u;
+static uint32_t g_lan_irq_last_intr_ident1 = 0u;
+static uint32_t g_lan_irq_last_dev_pending = 0u;
+static uint32_t g_lan_irq_last_report_ms = 0u;
 
 /* USER CODE END PV */
 
@@ -88,6 +122,24 @@ static void MX_RNG_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static diag_severity_t lan9645_irq_cause_severity(
+  uint32_t ana_anevents,
+  uint32_t intr_ident,
+  uint32_t intr_ident1,
+  uint32_t dev_pending
+)
+{
+  if ((ana_anevents & LAN9645_ANA_EVT_ERR_MASK) != 0u) {
+    return DIAG_SEV_ERR;
+  }
+  if (((ana_anevents & LAN9645_ANA_EVT_WARN_MASK) != 0u) ||
+      (intr_ident != 0u) ||
+      (intr_ident1 != 0u) ||
+      (dev_pending != 0u)) {
+    return DIAG_SEV_WARN;
+  }
+  return DIAG_SEV_INFO;
+}
 
 /* USER CODE END 0 */
 
@@ -151,6 +203,10 @@ int main(void)
   {
     Error_Handler();
   }
+  if (diag_router_set_uart_ready(1u) != APP_OK)
+  {
+    Error_Handler();
+  }
   if (app_orchestrator_init() != APP_OK)
   {
     Error_Handler();
@@ -188,8 +244,16 @@ int main(void)
     Error_Handler();
   }
   lan9645_runtime_set_core(&g_lan_core);
+  if (lan9645_runtime_irq_init(LAN9645_IRQ_STUCK_TIMEOUT_MS) != APP_OK)
+  {
+    Error_Handler();
+  }
   (void)app_orchestrator_set_state(APP_STATE_LAN_RESET);
   if (lan9645_core_hw_reset(&g_lan_core, 2u, 20u) != APP_OK)
+  {
+    Error_Handler();
+  }
+  if (lan9645_core_spi_setup(&g_lan_core, LAN9645_SPI_CLOCK_HZ) != APP_OK)
   {
     Error_Handler();
   }
@@ -215,13 +279,31 @@ int main(void)
     }
     else
     {
+      app_status_t eth_pf = ethernetif_preflight();
+
+      if (eth_pf != APP_OK)
+      {
+        diag_event_t lan_evt;
+        lan_evt.id = DIAG_EVT_LAN_SPI_TIMEOUT;
+        lan_evt.severity = DIAG_SEV_ERR;
+        lan_evt.dev = 8u;
+        lan_evt.reg = 0u;
+        lan_evt.arg0 = (uint32_t)eth_pf;
+        lan_evt.arg1 = 1u;
+        (void)diag_core_report(&lan_evt);
+        (void)diag_router_write_event(&lan_evt);
+        (void)app_orchestrator_set_fault((uint32_t)eth_pf);
+        (void)ui_service_set_error(1u);
+        Error_Handler();
+      }
+
       diag_event_t lan_evt;
       lan_evt.id = DIAG_EVT_LAN_SPI_IFSTAT;
       lan_evt.severity = DIAG_SEV_INFO;
       lan_evt.dev = 0u;
       lan_evt.reg = 0u;
       lan_evt.arg0 = lan_profile.feat_disable;
-      lan_evt.arg1 = 0u;
+      lan_evt.arg1 = lan_profile.chip_id;
       (void)diag_core_report(&lan_evt);
       (void)diag_router_write_event(&lan_evt);
       (void)app_orchestrator_set_state(APP_STATE_NET_READY);
@@ -230,7 +312,6 @@ int main(void)
       (void)ui_service_set_run(1u);
     }
   }
-  (void)diag_router_set_uart_ready(1u);
   (void)diag_router_poll();
   {
     diag_event_t boot_evt;
@@ -257,6 +338,116 @@ int main(void)
     /* USER CODE BEGIN 3 */
     MX_LWIP_Process();
     (void)diag_router_poll();
+    {
+      uint32_t now_ms = HAL_GetTick();
+      uint8_t irq_stuck_evt = 0u;
+      lan9645_irq_state_t irq_state = {0};
+      uint8_t irq_high = (HAL_GPIO_ReadPin(IRQ0_GPIO_Port, IRQ0_Pin) == GPIO_PIN_SET) ? 1u : 0u;
+
+      (void)lan9645_runtime_irq_poll(irq_high, now_ms, &irq_stuck_evt);
+      (void)lan9645_runtime_irq_get(&irq_state);
+
+      if ((irq_high != 0u) || (irq_state.edge_count != g_lan_irq_last_edge_count))
+      {
+        lan9645_core_irq_regs_t irq_regs = {0};
+        app_status_t irq_st = lan9645_core_get_irq_regs(&g_lan_core, &irq_regs);
+
+        if (irq_st == APP_OK)
+        {
+          uint32_t dev_pending = LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ident);
+          uint32_t drop_pending = irq_regs.ana_anevents & LAN9645_ANA_EVT_DROP_MASK;
+          uint32_t prev_drop_pending = g_lan_irq_last_ana_anevents & LAN9645_ANA_EVT_DROP_MASK;
+          uint8_t changed = 0u;
+          uint8_t periodic = 0u;
+
+          if ((irq_regs.intr_ident != g_lan_irq_last_intr_ident) ||
+              (irq_regs.intr_ident1 != g_lan_irq_last_intr_ident1) ||
+              (irq_regs.ana_anaintr != g_lan_irq_last_ana_anaintr) ||
+              (irq_regs.ana_anevents != g_lan_irq_last_ana_anevents) ||
+              (dev_pending != g_lan_irq_last_dev_pending))
+          {
+            changed = 1u;
+          }
+
+          if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
+          {
+            periodic = 1u;
+          }
+
+          if (((irq_regs.intr_ident != 0u) || (irq_regs.intr_ident1 != 0u) ||
+               (irq_regs.ana_anevents != 0u) || (dev_pending != 0u)) &&
+              ((changed != 0u) || (periodic != 0u)))
+          {
+            diag_event_t irq_cause_evt;
+            irq_cause_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
+            irq_cause_evt.severity = lan9645_irq_cause_severity(
+              irq_regs.ana_anevents,
+              irq_regs.intr_ident,
+              irq_regs.intr_ident1,
+              dev_pending
+            );
+            irq_cause_evt.dev = 8u;
+            irq_cause_evt.reg = irq_regs.ana_anevents;
+            irq_cause_evt.arg0 = irq_regs.intr_ident;
+            irq_cause_evt.arg1 = dev_pending;
+            (void)diag_core_report(&irq_cause_evt);
+            (void)diag_router_write_event(&irq_cause_evt);
+            g_lan_irq_last_report_ms = now_ms;
+          }
+
+          if ((drop_pending != 0u) && (drop_pending != prev_drop_pending))
+          {
+            diag_event_t drop_evt;
+            drop_evt.id = DIAG_EVT_LAN_DROP_COUNTER_ALERT;
+            drop_evt.severity = DIAG_SEV_WARN;
+            drop_evt.dev = 8u;
+            drop_evt.reg = irq_regs.ana_anevents;
+            drop_evt.arg0 = drop_pending;
+            drop_evt.arg1 = dev_pending;
+            (void)diag_core_report(&drop_evt);
+            (void)diag_router_write_event(&drop_evt);
+          }
+
+          g_lan_irq_last_ana_anaintr = irq_regs.ana_anaintr;
+          g_lan_irq_last_ana_anevents = irq_regs.ana_anevents;
+          g_lan_irq_last_intr_ident = irq_regs.intr_ident;
+          g_lan_irq_last_intr_ident1 = irq_regs.intr_ident1;
+          g_lan_irq_last_dev_pending = dev_pending;
+
+          if (irq_regs.ana_anevents != 0u)
+          {
+            app_status_t ack_st = lan9645_core_ack_irq(&g_lan_core, irq_regs.ana_anevents);
+            if (ack_st != APP_OK)
+            {
+              diag_event_t irq_ack_evt;
+              irq_ack_evt.id = DIAG_EVT_LAN_IRQ_ACK_FAIL;
+              irq_ack_evt.severity = DIAG_SEV_ERR;
+              irq_ack_evt.dev = 8u;
+              irq_ack_evt.reg = irq_regs.ana_anevents;
+              irq_ack_evt.arg0 = (uint32_t)ack_st;
+              irq_ack_evt.arg1 = irq_regs.intr_ident;
+              (void)diag_core_report(&irq_ack_evt);
+              (void)diag_router_write_event(&irq_ack_evt);
+            }
+          }
+        }
+      }
+
+      g_lan_irq_last_edge_count = irq_state.edge_count;
+
+      if (irq_stuck_evt != 0u)
+      {
+        diag_event_t irq_evt;
+        irq_evt.id = DIAG_EVT_LAN_IRQ_STUCK;
+        irq_evt.severity = DIAG_SEV_WARN;
+        irq_evt.dev = 8u;
+        irq_evt.reg = 0u;
+        irq_evt.arg0 = irq_state.edge_count;
+        irq_evt.arg1 = irq_state.stuck_timeout_ms;
+        (void)diag_core_report(&irq_evt);
+        (void)diag_router_write_event(&irq_evt);
+      }
+    }
     (void)cli_core_poll();
     {
       uint8_t rx = 0u;
@@ -604,6 +795,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  if (GPIO_Pin == IRQ0_Pin)
+  {
+    lan9645_runtime_irq_on_exti();
+  }
+}
 
 /* USER CODE END 4 */
 

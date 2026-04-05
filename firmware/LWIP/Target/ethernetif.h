@@ -22,9 +22,19 @@
 #define __ETHERNETIF_H__
 #include "lwip/err.h"
 #include "lwip/netif.h"
+#include "app_common_types.h"
 
 /* Within 'USER CODE' section, code will be kept by default at each generation */
 /* USER CODE BEGIN 0 */
+typedef struct {
+  uint8_t user_phy_ready;
+  uint8_t eth_started;
+  uint8_t link_up;
+  int32_t last_phy_status;
+  uint32_t mac_speed;
+  uint32_t mac_duplex;
+  uint32_t sample_tick_ms;
+} ethernetif_runtime_state_t;
 
 /* USER CODE END 0 */
 
@@ -39,6 +49,8 @@ u32_t sys_jiffies(void);
 u32_t sys_now(void);
 
 /* USER CODE BEGIN 1 */
+app_status_t ethernetif_preflight(void);
+app_status_t ethernetif_get_runtime_state(ethernetif_runtime_state_t *out);
 
 /* USER CODE END 1 */
 #endif

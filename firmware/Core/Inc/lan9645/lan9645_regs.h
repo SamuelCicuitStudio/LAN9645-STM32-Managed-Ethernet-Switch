@@ -18,6 +18,7 @@ typedef enum {
   LAN9645_TARGET_AFI = 0,
   LAN9645_TARGET_ANA = 1,
   LAN9645_TARGET_CHIP_TOP = 2,
+  LAN9645_TARGET_CPU = 3,
   LAN9645_TARGET_DEV = 5,
   LAN9645_TARGET_GCB = 16,
   LAN9645_TARGET_HSIO = 17,
@@ -72,17 +73,30 @@ static inline uint32_t lan9645_reg_desc_rel_addr(
 
 /* Register descriptors used by the STM32 managed-switch profile. */
 extern const lan9645_reg_desc_t LAN9645_REG_ANA_AUTOAGE;
+extern const lan9645_reg_desc_t LAN9645_REG_ANA_ANAINTR;
+extern const lan9645_reg_desc_t LAN9645_REG_ANA_ANEVENTS;
 extern const lan9645_reg_desc_t LAN9645_REG_ANA_PGID;
 extern const lan9645_reg_desc_t LAN9645_REG_ANA_PGID_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_ANA_AGGR_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_CHIP_TOP_CUPHY_PORT_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_CHIP_TOP_CUPHY_LED_CFG;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_INTR_ENA;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_INTR_ENA_CLR;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_INTR_ENA_SET;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_INTR_IDENT;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_INTR_IDENT1;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_DEV_INTR_ENA;
+extern const lan9645_reg_desc_t LAN9645_REG_CPU_DEV_INTR_IDENT;
 extern const lan9645_reg_desc_t LAN9645_REG_DEV_CLOCK_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_DEV_MAC_ENA_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_DEV_MAC_MODE_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_DEV_PCS1G_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_DEV_PCS1G_SD_CFG;
+extern const lan9645_reg_desc_t LAN9645_REG_GCB_CHIP_ID;
+extern const lan9645_reg_desc_t LAN9645_REG_GCB_SOFT_RST;
 extern const lan9645_reg_desc_t LAN9645_REG_GCB_FEAT_DISABLE;
+extern const lan9645_reg_desc_t LAN9645_REG_GCB_IF_CTRL;
+extern const lan9645_reg_desc_t LAN9645_REG_GCB_IF_CFGSTAT;
 extern const lan9645_reg_desc_t LAN9645_REG_HSIO_HW_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_HSIO_RGMII_CFG;
 extern const lan9645_reg_desc_t LAN9645_REG_QSYS_SW_PORT_MODE;
@@ -103,9 +117,29 @@ extern const lan9645_reg_desc_t LAN9645_REG_SYS_RAM_INIT;
 #define LAN9645_GCB_FEAT_DISABLE_FEAT_SGMII_DIS          LAN9645_GENMASK(20, 19)
 #define LAN9645_GCB_FEAT_DISABLE_FEAT_QSGMII_DIS         LAN9645_BIT(21)
 
+#define LAN9645_ANA_ANAINTR_INTR                          LAN9645_BIT(1)
+#define LAN9645_ANA_ANAINTR_INTR_ENA                      LAN9645_BIT(0)
+
+#define LAN9645_GCB_CHIP_ID_REV_ID                       LAN9645_GENMASK(31, 28)
+#define LAN9645_GCB_CHIP_ID_PART_ID                      LAN9645_GENMASK(27, 12)
+#define LAN9645_GCB_CHIP_ID_MFG_ID                       LAN9645_GENMASK(11, 1)
+#define LAN9645_GCB_CHIP_ID_ONE                          LAN9645_BIT(0)
+
+#define LAN9645_GCB_SOFT_RST_SOFT_SWC_RST                LAN9645_BIT(1)
+#define LAN9645_GCB_SOFT_RST_SOFT_CHIP_RST               LAN9645_BIT(0)
+
+#define LAN9645_GCB_IF_CTRL_IF_CTRL                      LAN9645_GENMASK(3, 0)
+#define LAN9645_GCB_IF_CTRL_IF_CTRL_SET(x)               LAN9645_FIELD_PREP(LAN9645_GCB_IF_CTRL_IF_CTRL, (x))
+
+#define LAN9645_GCB_IF_CFGSTAT_IF_STAT                   LAN9645_BIT(16)
+#define LAN9645_GCB_IF_CFGSTAT_IF_CFG                    LAN9645_GENMASK(3, 0)
+#define LAN9645_GCB_IF_CFGSTAT_IF_CFG_SET(x)             LAN9645_FIELD_PREP(LAN9645_GCB_IF_CFGSTAT_IF_CFG, (x))
+
 #define LAN9645_CHIP_TOP_CUPHY_PORT_CFG_COMA_MODE        LAN9645_BIT(6)
 #define LAN9645_CHIP_TOP_CUPHY_PORT_CFG_MODE             LAN9645_GENMASK(5, 1)
 #define LAN9645_CHIP_TOP_CUPHY_PORT_CFG_GTX_CLK_ENA      LAN9645_BIT(0)
+
+#define LAN9645_CPU_DEV_INTR_MASK                         LAN9645_GENMASK(8, 0)
 
 #define LAN9645_DEV_CLOCK_CFG_MAC_TX_RST                 LAN9645_BIT(7)
 #define LAN9645_DEV_CLOCK_CFG_MAC_RX_RST                 LAN9645_BIT(6)
@@ -152,6 +186,8 @@ extern const lan9645_reg_desc_t LAN9645_REG_SYS_RAM_INIT;
 #define LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT_SET(x)     LAN9645_FIELD_PREP(LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT, (x))
 #define LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK            LAN9645_GENMASK(7, 0)
 #define LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK_SET(x)     LAN9645_FIELD_PREP(LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK, (x))
+#define LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA        LAN9645_BIT(14)
+#define LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA        LAN9645_BIT(13)
 
 #define LAN9645_SYS_RESET_CFG_CORE_ENA                   LAN9645_BIT(0)
 #define LAN9645_SYS_RESET_CFG_CORE_ENA_SET(x)            LAN9645_FIELD_PREP(LAN9645_SYS_RESET_CFG_CORE_ENA, (x))

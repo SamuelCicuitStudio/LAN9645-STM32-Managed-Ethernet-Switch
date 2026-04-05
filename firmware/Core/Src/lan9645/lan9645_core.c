@@ -3,6 +3,12 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "lan9645/lan9645_spi.h"
+
+#define LAN9645_SPI_BYTE_ORDER_LE      (0x00000000u)
+
+#define LAN9645_CORE_SPI_SETUP_DELAY_MS (5u)
+
 static app_status_t lan9645_core_check_ctx(const lan9645_core_t *ctx)
 {
   if (ctx == NULL) {
@@ -29,6 +35,8 @@ app_status_t lan9645_core_init(
   ctx->reg = reg;
   ctx->rst_port = rst_port;
   ctx->rst_pin = rst_pin;
+  ctx->spi_clock_hz = 0u;
+  ctx->spi_if_ready = 0u;
   ctx->initialized = 1u;
   return APP_OK;
 }
@@ -44,71 +52,213 @@ app_status_t lan9645_core_hw_reset(lan9645_core_t *ctx, uint32_t assert_ms, uint
   HAL_Delay(assert_ms);
   HAL_GPIO_WritePin(ctx->rst_port, ctx->rst_pin, GPIO_PIN_SET);
   HAL_Delay(release_ms);
+  ctx->spi_if_ready = 0u;
+  (void)lan9645_spi_set_padding(ctx->reg->spi, LAN9645_SPI_DEFAULT_PADDING);
   return APP_OK;
+}
+
+app_status_t lan9645_core_spi_setup(lan9645_core_t *ctx, uint32_t spi_clock_hz)
+{
+  uint32_t if_cfgstat = 0u;
+  uint8_t padding = 0u;
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (spi_clock_hz == 0u) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_spi_calc_padding(spi_clock_hz, &padding);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_write32_desc(
+    ctx->reg,
+    &LAN9645_REG_GCB_IF_CTRL,
+    0u,
+    0u,
+    0u,
+    LAN9645_SPI_BYTE_ORDER_LE
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_reg_write32_desc(
+    ctx->reg,
+    &LAN9645_REG_GCB_IF_CFGSTAT,
+    0u,
+    0u,
+    0u,
+    LAN9645_GCB_IF_CFGSTAT_IF_CFG_SET((uint32_t)padding)
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  HAL_Delay(LAN9645_CORE_SPI_SETUP_DELAY_MS);
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_GCB_IF_CFGSTAT,
+    0u,
+    0u,
+    0u,
+    &if_cfgstat
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+  if (LAN9645_FIELD_GET(LAN9645_GCB_IF_CFGSTAT_IF_CFG, if_cfgstat) != (uint32_t)padding) {
+    return APP_EIO;
+  }
+
+  st = lan9645_spi_set_padding(ctx->reg->spi, padding);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  ctx->spi_clock_hz = spi_clock_hz;
+  ctx->spi_if_ready = 1u;
+  return APP_OK;
+}
+
+app_status_t lan9645_core_get_spi_status(
+  lan9645_core_t *ctx,
+  uint32_t *if_ctrl,
+  uint32_t *if_cfgstat,
+  uint8_t *padding_bytes,
+  uint32_t *spi_clock_hz,
+  uint8_t *spi_if_ready
+)
+{
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  if (padding_bytes != NULL) {
+    *padding_bytes = ctx->reg->spi->padding_bytes;
+  }
+  if (spi_clock_hz != NULL) {
+    *spi_clock_hz = ctx->spi_clock_hz;
+  }
+  if (spi_if_ready != NULL) {
+    *spi_if_ready = ctx->spi_if_ready;
+  }
+
+  if ((if_ctrl == NULL) && (if_cfgstat == NULL)) {
+    return APP_OK;
+  }
+
+  if (ctx->spi_if_ready == 0u) {
+    return APP_ESTATE;
+  }
+
+  if (if_ctrl != NULL) {
+    st = lan9645_reg_read32_desc(
+      ctx->reg,
+      &LAN9645_REG_GCB_IF_CTRL,
+      0u,
+      0u,
+      0u,
+      if_ctrl
+    );
+    if (st != APP_OK) {
+      return st;
+    }
+  }
+
+  if (if_cfgstat != NULL) {
+    st = lan9645_reg_read32_desc(
+      ctx->reg,
+      &LAN9645_REG_GCB_IF_CFGSTAT,
+      0u,
+      0u,
+      0u,
+      if_cfgstat
+    );
+    if (st != APP_OK) {
+      return st;
+    }
+  }
+
+  return APP_OK;
+}
+
+app_status_t lan9645_core_read_chip_id(lan9645_core_t *ctx, uint32_t *chip_id)
+{
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (chip_id == NULL) {
+    return APP_EINVAL;
+  }
+
+  return lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_GCB_CHIP_ID,
+    0u,
+    0u,
+    0u,
+    chip_id
+  );
 }
 
 app_status_t lan9645_core_soft_reset(lan9645_core_t *ctx, uint32_t timeout_ms)
 {
+  uint32_t start_ms = 0u;
+  uint32_t now_ms = 0u;
+  uint32_t val = 0u;
   uint32_t local_timeout = timeout_ms;
   app_status_t st = lan9645_core_check_ctx(ctx);
   if (st != APP_OK) {
     return st;
+  }
+  if (ctx->spi_if_ready == 0u) {
+    return APP_ESTATE;
   }
 
   if (local_timeout == 0u) {
     local_timeout = LAN9645_CORE_SOFT_RESET_TIMEOUT_MS;
   }
 
-  st = lan9645_reg_rmw32_desc(
+  st = lan9645_reg_write32_desc(
     ctx->reg,
-    &LAN9645_REG_SYS_RESET_CFG,
+    &LAN9645_REG_GCB_SOFT_RST,
     0u,
     0u,
     0u,
-    LAN9645_SYS_RESET_CFG_CORE_ENA,
-    LAN9645_SYS_RESET_CFG_CORE_ENA_SET(0u)
+    LAN9645_GCB_SOFT_RST_SOFT_SWC_RST
   );
   if (st != APP_OK) {
     return st;
   }
 
-  st = lan9645_reg_rmw32_desc(
-    ctx->reg,
-    &LAN9645_REG_SYS_RAM_INIT,
-    0u,
-    0u,
-    0u,
-    LAN9645_SYS_RAM_INIT_RAM_INIT,
-    LAN9645_SYS_RAM_INIT_RAM_INIT_SET(1u)
-  );
-  if (st != APP_OK) {
-    return st;
+  ctx->spi_if_ready = 0u;
+  (void)lan9645_spi_set_padding(ctx->reg->spi, LAN9645_SPI_DEFAULT_PADDING);
+
+  start_ms = HAL_GetTick();
+  now_ms = start_ms;
+  while ((now_ms - start_ms) <= local_timeout) {
+    st = lan9645_reg_read32_desc(
+      ctx->reg,
+      &LAN9645_REG_GCB_SOFT_RST,
+      0u,
+      0u,
+      0u,
+      &val
+    );
+    if ((st == APP_OK) && ((val & LAN9645_GCB_SOFT_RST_SOFT_SWC_RST) == 0u)) {
+      return lan9645_core_spi_setup(ctx, ctx->spi_clock_hz);
+    }
+    HAL_Delay(1u);
+    now_ms = HAL_GetTick();
   }
 
-  st = lan9645_reg_wait32_desc(
-    ctx->reg,
-    &LAN9645_REG_SYS_RAM_INIT,
-    0u,
-    0u,
-    0u,
-    LAN9645_SYS_RAM_INIT_RAM_INIT,
-    LAN9645_SYS_RAM_INIT_RAM_INIT_SET(0u),
-    local_timeout,
-    NULL
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-
-  return lan9645_reg_rmw32_desc(
-    ctx->reg,
-    &LAN9645_REG_SYS_RESET_CFG,
-    0u,
-    0u,
-    0u,
-    LAN9645_SYS_RESET_CFG_CORE_ENA,
-    LAN9645_SYS_RESET_CFG_CORE_ENA_SET(1u)
-  );
+  return APP_ETIMEOUT;
 }
 
 app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_disable)
@@ -193,4 +343,130 @@ app_status_t lan9645_core_get_rgmii_link(
   }
 
   return APP_OK;
+}
+
+app_status_t lan9645_core_get_irq_regs(lan9645_core_t *ctx, lan9645_core_irq_regs_t *out)
+{
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (out == NULL) {
+    return APP_EINVAL;
+  }
+  if (ctx->spi_if_ready == 0u) {
+    return APP_ESTATE;
+  }
+
+  memset(out, 0, sizeof(*out));
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_ANA_ANAINTR,
+    0u,
+    0u,
+    0u,
+    &out->ana_anaintr
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_ANA_ANEVENTS,
+    0u,
+    0u,
+    0u,
+    &out->ana_anevents
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_CPU_INTR_ENA,
+    0u,
+    0u,
+    0u,
+    &out->intr_ena
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_CPU_INTR_IDENT,
+    0u,
+    0u,
+    0u,
+    &out->intr_ident
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_CPU_INTR_IDENT1,
+    0u,
+    0u,
+    0u,
+    &out->intr_ident1
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_CPU_DEV_INTR_ENA,
+    0u,
+    0u,
+    0u,
+    &out->dev_intr_ena
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_CPU_DEV_INTR_IDENT,
+    0u,
+    0u,
+    0u,
+    &out->dev_intr_ident
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  return APP_OK;
+}
+
+app_status_t lan9645_core_ack_irq(lan9645_core_t *ctx, uint32_t ana_anevents_mask)
+{
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (ctx->spi_if_ready == 0u) {
+    return APP_ESTATE;
+  }
+  if (ana_anevents_mask == 0u) {
+    return APP_OK;
+  }
+
+  /* ANEVENTS is treated as W1C in this service path. */
+  return lan9645_reg_write32_desc(
+    ctx->reg,
+    &LAN9645_REG_ANA_ANEVENTS,
+    0u,
+    0u,
+    0u,
+    ana_anevents_mask
+  );
 }

@@ -126,11 +126,73 @@ Execution rule:
 | Phase 2 diag core | Completed | `Core/Inc/diag/diag_core.h`, `Core/Src/diag/diag_core.c` | none |
 | Phase 3 diag router | Completed (baseline) | `Core/Inc/diag/diag_router.h`, `Core/Src/diag/diag_router.c` | USB/UART owner policy verification on board |
 | Phase 4 LAN transport + reg | Completed (baseline) | `lan9645_spi.*`, `lan9645_reg.*` | SPI read/write sanity on real board |
-| Phase 5 managed profile/core | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` startup integration | confirm profile writes on hardware |
+| Phase 5 managed profile/core | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` startup integration; managed profile now enables `ANA_ANAINTR.INTR_ENA` and `CPU_DEV_INTR_ENA` mask for IRQ cause visibility | confirm profile writes on hardware |
 | Phase 6 USER_PHY adapter | Completed (baseline) | `lan9645_user_phy_adapter.*` created with virtual Clause-22 register model, per-port context, and 10/100 policy | validate link behavior on board |
-| Phase 7 netif/linker/cache glue | In progress | `MX_LWIP_Process()` loop active; `ethernet_link_check_state()` now uses USER_PHY + adapter path and sets ETH MAC speed/duplex/start-stop | complete DMA/cache stress validation |
-| Phase 8 CLI/runtime contract | In progress | `cli_core` + `cli_ingress` + `ui_service` + `app_orchestrator` added; USB CDC and UART4 now feed CLI line parser; startup state transitions are explicit (`BOOT` to `RUN`) | validate command path and transition behavior on board |
+| Phase 7 netif/linker/cache glue | In progress | `MX_LWIP_Process()` loop active; `ethernet_link_check_state()` now uses USER_PHY + adapter path and sets ETH MAC speed/duplex/start-stop; `ethernetif_preflight()` added and called in startup gate | complete DMA/cache stress validation |
+| Phase 8 CLI/runtime contract | In progress | `cli_core` + `cli_ingress` + `ui_service` + `app_orchestrator` added; USB CDC and UART4 now feed CLI line parser; ingress now binds `diag_router` owner per received command source (USB/UART4), so command responses and LAN faults follow the active console; startup state transitions are explicit (`BOOT` to `RUN`); UART4 diag routing is enabled early in boot; IRQ monitor path added (`irq show`, `irq clear`, `irq ack`, stuck-event report); `irq show` now reports ANA + `CPU_INTR_*` + `CPU_DEV_INTR_*` registers; runtime emits `LAN_IRQ_CAUSE` with ANA-event-based severity classification, raises `LAN_DROP_COUNTER_ALERT` for drop/discard class events, and performs IRQ acknowledge (`ANA_ANEVENTS`) with explicit `LAN_IRQ_ACK_FAIL` reporting on failures; `lan check` now validates interrupt gate configuration (`ANA_ANAINTR.INTR_ENA`, `CPU_DEV_INTR_ENA`); `serial show` exposes router + ingress counters; `eth show` exposes runtime MAC/PHY/link snapshot; `net show` exposes LwIP netif/IP routing snapshot; `net check` enforces ping-readiness criteria (link/up/IP/mask/default/ETH started); `bringup check` aggregates serial+eth+net+net-check+LAN preflight checks for board validation | validate command path and transition behavior on board |
 | Phase 9 ping matrix | Not started | n/a | execute copper/SFP ping matrix |
+
+---
+
+## 2.3.1) Refactor Progress Note (April 5, 2026, SPI Alignment Pass)
+
+Completed in code:
+- `lan9645_spi.*` aligned to Linux MFD strategy:
+  - default/max padding set to `15`
+  - SPI padding formula helper added (`ceil((kHz*2 + 1500) / 8000)`)
+  - read path changed to one full SPI transfer (addr + padding + value)
+- `lan9645_target_map.*` base addresses aligned to Linux BSP resource map for active targets:
+  - `gcb=0x4000`, `qs=0x8000`, `chip_top=0x10000`, `rew=0x18000`, `sys=0x2C000`, `hsio=0x30000`
+  - `dev0..dev8=0x38000 + n*0x4000`, `qsys=0x100000`, `afi=0x120000`, `ana=0x140000`
+- `lan9645_core.*` now includes mandatory SPI setup and reset sequencing:
+  - `lan9645_core_spi_setup()` programs `IF_CTRL` and `IF_CFGSTAT`, then readback-verifies
+  - `lan9645_core_soft_reset()` uses `GCB SOFT_RST` flow and re-applies SPI setup after reset
+- `main.c` startup now calls `lan9645_core_spi_setup()` immediately after external reset and before profile apply.
+
+Validation completed in workspace:
+- syntax checks passed for all files in `Core/Src/lan9645/*.c`
+- syntax check passed for `Core/Src/main.c`
+
+Remaining gate (not optional):
+- on-board validation is still required to confirm:
+  - actual SPI clock matches configured `LAN9645_SPI_CLOCK_HZ`
+  - computed padding is stable on real hardware
+  - IF readback/reset flow is stable across cold boots
+
+---
+
+## 2.3.2) CLI Scope Policy (Locked)
+
+Yes. The current CLI is intentionally a bring-up baseline only.
+
+What is locked for now (baseline CLI):
+- `status all`
+- `status errors`
+- `bringup check`
+- `diag clear`
+- `link show`
+- `phy show`
+- `lan id`
+- `lan check`
+- `lan profile apply`
+- `lan preflight`
+- `eth show`
+- `net show`
+- `net check`
+- `serial show`
+- `spi status`
+- `reg read` / `reg write`
+- `sanity spi`
+
+What is deferred on purpose:
+- advanced QoS/TSN controls
+- advanced filtering/VCAP controls
+- FRER/HSR/PRP/MRP/PSFP runtime controls
+- advanced per-feature error counters and deep diagnostics
+
+Expansion rule (no ambiguity):
+- CLI commands and error-report channels are expanded only when the matching BSP feature phase is implemented and validated.
+- No advanced command is exposed before its underlying register path and diagnostics are stable.
 
 ---
 
@@ -140,10 +202,10 @@ Start immediately with this exact order:
 
 1. Close software integration checks:
 - verify `cli_core`, `cli_ingress`, `ui_service`, and `app_orchestrator` are linked and active in runtime build
-- verify USB CDC and UART4 both dispatch lines to `cli_core_exec_line()`
+- verify USB CDC and UART4 both dispatch lines to `cli_core_exec_line()` and ownership is switched to active source (`serial show`)
 
 2. Validate command path on board:
-- run `status all`, `status errors`, `link show 0`, `link show 1`, `phy show 0`, `phy show 1`
+- run `status all`, `status errors`, `bringup check`, `eth show`, `net show`, `net check`, `link show 0`, `link show 1`, `phy show 0`, `phy show 1`
 - verify outputs appear on active serial channel(s) and remain deterministic
 
 3. Validate LAN/SPI stability gate:
@@ -176,13 +238,14 @@ Done when this block is complete:
 | S2 | Managed profile and reset path | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` reset/profile apply |
 | S3 | USER_PHY adapter model | Completed (baseline) | `lan9645_user_phy_adapter.*` + deterministic logical address initialization in `eth_custom_phy_interface.c` |
 | S4 | LwIP netif link integration | Completed (baseline) | `LWIP/Target/ethernetif.c` link check uses USER_PHY + MAC speed/duplex update |
-| S5 | CLI command layer | Completed (baseline) | `cli_core.*` with `help`, `state`, `status`, `diag clear`, `link`, `phy`, `reg`, `port`, `sanity spi` commands |
+| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `serial show`, `irq`, `reg`, `port`, `sanity spi` commands |
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Not started | pending board test execution |
 
 Locked next section:
 - execute `S8` ping matrix and target-map hardware validation closure.
+- keep advanced CLI controls deferred until advanced BSP phases are implemented.
 
 ---
 
@@ -326,10 +389,19 @@ Implement in:
 
 Mandatory outputs:
 - `MX_LWIP_Process()` called continuously in main runtime
-- `status all`, `status errors`, `link show`, `phy show`, register read/write commands
+- baseline commands only:
+  - `status all`, `status errors`, `diag clear`
+  - `link show`, `phy show`
+  - `lan id`, `lan check`, `lan profile apply`, `lan preflight`, `spi status`
+  - register read/write and SPI sanity
 - deterministic startup state machine (`BOOT` -> `LAN_RESET` -> `LAN_SPI_TEST` -> `LAN_PROFILE_APPLY` -> `NET_READY` -> `RUN`)
 - locked LED and button behavior
 - periodic poll schedule for LAN, CLI, diag router, and LwIP service
+- ETH link monitoring bound to managed RMII1 path (`USER_PHY` logical port1) for deterministic MAC link state.
+
+Deferred from this phase:
+- feature-specific CLI controls and deep per-feature diagnostics for QoS/TSN/VCAP/FRER/PTP.
+- these are added only in the matching advanced BSP phases.
 
 Done when:
 - startup and fault transitions are deterministic and repeatable

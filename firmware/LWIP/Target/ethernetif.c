@@ -55,6 +55,7 @@
 /* ETH_RX_BUFFER_SIZE parameter is defined in lwipopts.h */
 
 /* USER CODE BEGIN 1 */
+#define LAN9645_ETH_USER_PHY_ACTIVE_PORT   LAN9645_USER_PHY_PORT1
 
 /* USER CODE END 1 */
 
@@ -137,6 +138,15 @@ static lan9645_user_phy_adapter_t s_user_phy_adapter;
 static uint8_t s_user_phy_ready = 0u;
 static uint8_t s_eth_started = 0u;
 static int32_t s_last_phy_status = 0x7FFFFFFF;
+static ethernetif_runtime_state_t s_eth_state = {
+  0u,
+  0u,
+  0u,
+  USER_PHY_STATUS_ERROR,
+  ETH_SPEED_100M,
+  ETH_FULLDUPLEX_MODE,
+  0u
+};
 
 /* USER CODE END 2 */
 
@@ -177,6 +187,17 @@ static void ethernetif_report_phy_error(int32_t phy_status)
   (void)diag_router_write_event(&evt);
 }
 
+static void ethernetif_update_state(uint8_t link_up, int32_t phy_status, uint32_t speed, uint32_t duplex)
+{
+  s_eth_state.user_phy_ready = s_user_phy_ready;
+  s_eth_state.eth_started = s_eth_started;
+  s_eth_state.link_up = (link_up != 0u) ? 1u : 0u;
+  s_eth_state.last_phy_status = phy_status;
+  s_eth_state.mac_speed = speed;
+  s_eth_state.mac_duplex = duplex;
+  s_eth_state.sample_tick_ms = HAL_GetTick();
+}
+
 static int32_t ethernetif_user_phy_init_once(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
@@ -190,6 +211,10 @@ static int32_t ethernetif_user_phy_init_once(void)
   }
 
   st = lan9645_user_phy_adapter_init(&s_user_phy_adapter, core);
+  if (st != APP_OK) {
+    return USER_PHY_STATUS_ERROR;
+  }
+  st = lan9645_user_phy_adapter_set_active_port(&s_user_phy_adapter, LAN9645_ETH_USER_PHY_ACTIVE_PORT);
   if (st != APP_OK) {
     return USER_PHY_STATUS_ERROR;
   }
@@ -212,6 +237,7 @@ static int32_t ethernetif_user_phy_init_once(void)
   }
 
   s_user_phy_ready = 1u;
+  s_eth_state.user_phy_ready = 1u;
   return USER_PHY_STATUS_OK;
 }
 
@@ -539,10 +565,12 @@ void ethernet_link_check_state(struct netif *netif)
   }
 
   if (ethernetif_user_phy_init_once() != USER_PHY_STATUS_OK) {
+    ethernetif_update_state((uint8_t)netif_is_link_up(netif), USER_PHY_STATUS_ERROR, speed, duplex);
     if (netif_is_link_up(netif) != 0) {
       (void)HAL_ETH_Stop(&heth);
       s_eth_started = 0u;
       netif_set_link_down(netif);
+      ethernetif_update_state(0u, USER_PHY_STATUS_ERROR, speed, duplex);
     }
     return;
   }
@@ -551,18 +579,22 @@ void ethernet_link_check_state(struct netif *netif)
   ethernetif_report_phy_error(phy_state);
 
   if (phy_state == USER_PHY_STATUS_LINK_DOWN || phy_state == USER_PHY_STATUS_AUTONEGO_NOTDONE) {
+    ethernetif_update_state((uint8_t)netif_is_link_up(netif), phy_state, speed, duplex);
     if (netif_is_link_up(netif) != 0) {
       (void)HAL_ETH_Stop(&heth);
       s_eth_started = 0u;
       netif_set_link_down(netif);
+      ethernetif_update_state(0u, phy_state, speed, duplex);
     }
     return;
   }
   if (phy_state < 0) {
+    ethernetif_update_state((uint8_t)netif_is_link_up(netif), phy_state, speed, duplex);
     if (netif_is_link_up(netif) != 0) {
       (void)HAL_ETH_Stop(&heth);
       s_eth_started = 0u;
       netif_set_link_down(netif);
+      ethernetif_update_state(0u, phy_state, speed, duplex);
     }
     return;
   }
@@ -580,10 +612,12 @@ void ethernet_link_check_state(struct netif *netif)
     speed = ETH_SPEED_10M;
     duplex = ETH_HALFDUPLEX_MODE;
   } else {
+    ethernetif_update_state((uint8_t)netif_is_link_up(netif), phy_state, speed, duplex);
     if (netif_is_link_up(netif) != 0) {
       (void)HAL_ETH_Stop(&heth);
       s_eth_started = 0u;
       netif_set_link_down(netif);
+      ethernetif_update_state(0u, phy_state, speed, duplex);
     }
     return;
   }
@@ -607,6 +641,7 @@ void ethernet_link_check_state(struct netif *netif)
   if (netif_is_link_up(netif) == 0) {
     netif_set_link_up(netif);
   }
+  ethernetif_update_state((uint8_t)netif_is_link_up(netif), phy_state, speed, duplex);
 }
 
 void HAL_ETH_RxAllocateCallback(uint8_t **buff)
@@ -681,5 +716,33 @@ void HAL_ETH_TxFreeCallback(uint32_t * buff)
 }
 
 /* USER CODE BEGIN 8 */
+app_status_t ethernetif_preflight(void)
+{
+  int32_t phy_st = USER_PHY_STATUS_OK;
+
+  phy_st = ethernetif_user_phy_init_once();
+  if (phy_st != USER_PHY_STATUS_OK) {
+    ethernetif_report_phy_error(phy_st);
+    return APP_EIO;
+  }
+
+  phy_st = USER_PHY_GetLinkState(&s_user_phy_obj);
+  ethernetif_report_phy_error(phy_st);
+  ethernetif_update_state(0u, phy_st, s_eth_state.mac_speed, s_eth_state.mac_duplex);
+  if (phy_st < 0) {
+    return APP_EIO;
+  }
+
+  return APP_OK;
+}
+
+app_status_t ethernetif_get_runtime_state(ethernetif_runtime_state_t *out)
+{
+  if (out == NULL) {
+    return APP_EINVAL;
+  }
+  *out = s_eth_state;
+  return APP_OK;
+}
 
 /* USER CODE END 8 */

@@ -3,6 +3,10 @@
 #include <stddef.h>
 #include <string.h>
 
+#define LAN9645_SPI_REG_ADDR_SIZE   (3u)
+#define LAN9645_SPI_REG_VALUE_SIZE  (4u)
+#define LAN9645_SPI_READ_FRAME_MAX  (LAN9645_SPI_REG_ADDR_SIZE + LAN9645_SPI_MAX_PADDING + LAN9645_SPI_REG_VALUE_SIZE)
+
 static uint32_t lan9645_spi_reg_to_si_addr(uint32_t reg_addr)
 {
   return (reg_addr & LAN9645_SPI_REG_ADDR_MASK) >> 2;
@@ -27,10 +31,30 @@ static app_status_t lan9645_spi_tx(lan9645_spi_t *bus, const uint8_t *tx, uint16
   return APP_OK;
 }
 
-static app_status_t lan9645_spi_rx(lan9645_spi_t *bus, uint8_t *rx, uint16_t len)
+static app_status_t lan9645_spi_txrx(
+  lan9645_spi_t *bus,
+  const uint8_t *tx,
+  uint8_t *rx,
+  uint16_t len
+)
 {
-  if (HAL_SPI_Receive(bus->hspi, rx, len, bus->timeout_ms) != HAL_OK) {
+  if (HAL_SPI_TransmitReceive(bus->hspi, (uint8_t *)tx, rx, len, bus->timeout_ms) != HAL_OK) {
     return APP_EIO;
+  }
+
+  return APP_OK;
+}
+
+static app_status_t lan9645_spi_check_ctx(const lan9645_spi_t *bus)
+{
+  if (bus == NULL) {
+    return APP_EINVAL;
+  }
+  if ((bus->initialized == 0u) || (bus->hspi == NULL) || (bus->cs_port == NULL)) {
+    return APP_ESTATE;
+  }
+  if (bus->padding_bytes > LAN9645_SPI_MAX_PADDING) {
+    return APP_ESTATE;
   }
 
   return APP_OK;
@@ -68,8 +92,9 @@ app_status_t lan9645_spi_init(
 
 app_status_t lan9645_spi_set_padding(lan9645_spi_t *bus, uint8_t padding_bytes)
 {
-  if (bus == NULL) {
-    return APP_EINVAL;
+  app_status_t st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
   }
   if (padding_bytes > LAN9645_SPI_MAX_PADDING) {
     return APP_EINVAL;
@@ -81,8 +106,9 @@ app_status_t lan9645_spi_set_padding(lan9645_spi_t *bus, uint8_t padding_bytes)
 
 app_status_t lan9645_spi_set_timeout(lan9645_spi_t *bus, uint32_t timeout_ms)
 {
-  if (bus == NULL) {
-    return APP_EINVAL;
+  app_status_t st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
   }
   if (timeout_ms == 0u) {
     return APP_EINVAL;
@@ -94,55 +120,78 @@ app_status_t lan9645_spi_set_timeout(lan9645_spi_t *bus, uint32_t timeout_ms)
 
 app_status_t lan9645_spi_set_retries(lan9645_spi_t *bus, uint8_t retries)
 {
-  if (bus == NULL) {
-    return APP_EINVAL;
+  app_status_t st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
   }
 
   bus->retries = retries;
   return APP_OK;
 }
 
+app_status_t lan9645_spi_calc_padding(uint32_t spi_clock_hz, uint8_t *padding_bytes)
+{
+  uint64_t khz = 0u;
+  uint64_t num = 0u;
+  uint64_t pad = 0u;
+
+  if (padding_bytes == NULL) {
+    return APP_EINVAL;
+  }
+
+  khz = (uint64_t)(spi_clock_hz / 1000u);
+  num = (khz * (uint64_t)LAN9645_SPI_REG_ACCESS_TIME_US) + (uint64_t)LAN9645_SPI_PADDING_NUM_CONST;
+  pad = (num + ((uint64_t)LAN9645_SPI_PADDING_DEN_CONST - 1u)) / (uint64_t)LAN9645_SPI_PADDING_DEN_CONST;
+
+  if (pad > (uint64_t)LAN9645_SPI_MAX_PADDING) {
+    return APP_EINVAL;
+  }
+
+  *padding_bytes = (uint8_t)pad;
+  return APP_OK;
+}
+
 app_status_t lan9645_spi_read32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t *value)
 {
+  uint8_t tx[LAN9645_SPI_READ_FRAME_MAX];
+  uint8_t rx[LAN9645_SPI_READ_FRAME_MAX];
   uint32_t si_addr = 0u;
-  uint8_t cmd[3];
-  uint8_t pad[LAN9645_SPI_MAX_PADDING] = {0};
-  uint8_t rx[4];
+  uint16_t frame_len = 0u;
+  uint16_t value_offset = 0u;
   app_status_t st = APP_EIO;
   uint8_t attempt = 0u;
 
-  if ((bus == NULL) || (value == NULL)) {
+  st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (value == NULL) {
     return APP_EINVAL;
   }
-  if (bus->initialized == 0u) {
-    return APP_ESTATE;
+  if ((reg_addr & 0x3u) != 0u) {
+    return APP_EINVAL;
   }
 
   si_addr = lan9645_spi_reg_to_si_addr(reg_addr);
+  frame_len = (uint16_t)(LAN9645_SPI_REG_ADDR_SIZE + bus->padding_bytes + LAN9645_SPI_REG_VALUE_SIZE);
+  value_offset = (uint16_t)(LAN9645_SPI_REG_ADDR_SIZE + bus->padding_bytes);
 
-  cmd[0] = (uint8_t)((si_addr >> 16) & 0x7Fu);
-  cmd[1] = (uint8_t)((si_addr >> 8) & 0xFFu);
-  cmd[2] = (uint8_t)(si_addr & 0xFFu);
+  memset(tx, 0, sizeof(tx));
+  tx[0] = (uint8_t)((si_addr >> 16) & 0x7Fu);
+  tx[1] = (uint8_t)((si_addr >> 8) & 0xFFu);
+  tx[2] = (uint8_t)(si_addr & 0xFFu);
 
   for (attempt = 0u; attempt <= bus->retries; ++attempt) {
     lan9645_spi_cs_assert(bus);
-
-    st = lan9645_spi_tx(bus, cmd, (uint16_t)sizeof(cmd));
-    if ((st == APP_OK) && (bus->padding_bytes > 0u)) {
-      st = lan9645_spi_tx(bus, pad, bus->padding_bytes);
-    }
-    if (st == APP_OK) {
-      st = lan9645_spi_rx(bus, rx, (uint16_t)sizeof(rx));
-    }
-
+    st = lan9645_spi_txrx(bus, tx, rx, frame_len);
     lan9645_spi_cs_deassert(bus);
 
     if (st == APP_OK) {
       *value =
-        ((uint32_t)rx[0]) |
-        ((uint32_t)rx[1] << 8) |
-        ((uint32_t)rx[2] << 16) |
-        ((uint32_t)rx[3] << 24);
+        ((uint32_t)rx[value_offset + 0u]) |
+        ((uint32_t)rx[value_offset + 1u] << 8) |
+        ((uint32_t)rx[value_offset + 2u] << 16) |
+        ((uint32_t)rx[value_offset + 3u] << 24);
       return APP_OK;
     }
 
@@ -159,11 +208,12 @@ app_status_t lan9645_spi_write32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t
   app_status_t st = APP_EIO;
   uint8_t attempt = 0u;
 
-  if (bus == NULL) {
-    return APP_EINVAL;
+  st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
   }
-  if (bus->initialized == 0u) {
-    return APP_ESTATE;
+  if ((reg_addr & 0x3u) != 0u) {
+    return APP_EINVAL;
   }
 
   si_addr = lan9645_spi_reg_to_si_addr(reg_addr);

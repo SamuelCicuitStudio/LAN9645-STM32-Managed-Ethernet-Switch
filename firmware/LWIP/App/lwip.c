@@ -22,12 +22,25 @@
 #include "lwip.h"
 #include "lwip/init.h"
 #include "lwip/netif.h"
+#include "lwip/ip4_addr.h"
 #if defined ( __CC_ARM )  /* MDK ARM Compiler */
 #include "lwip/sio.h"
 #endif /* MDK ARM Compiler */
 #include "ethernetif.h"
+#include <stdio.h>
+#include <string.h>
 
 /* USER CODE BEGIN 0 */
+static void lwip_format_ipv4(const ip4_addr_t *addr, char *dst, size_t dst_len)
+{
+  if ((addr == NULL) || (dst == NULL) || (dst_len == 0u)) {
+    return;
+  }
+
+  if (ip4addr_ntoa_r(addr, dst, (int)dst_len) == NULL) {
+    (void)snprintf(dst, dst_len, "0.0.0.0");
+  }
+}
 
 /* USER CODE END 0 */
 /* Private function prototypes -----------------------------------------------*/
@@ -37,6 +50,29 @@ static void Ethernet_Link_Periodic_Handle(struct netif *netif);
 void Error_Handler(void);
 
 /* USER CODE BEGIN 1 */
+extern struct netif gnetif;
+
+app_status_t lwip_get_runtime_state(lwip_runtime_state_t *out)
+{
+  if (out == NULL) {
+    return APP_EINVAL;
+  }
+
+  memset(out, 0, sizeof(*out));
+  out->sample_tick_ms = HAL_GetTick();
+  out->netif_up = (netif_is_up(&gnetif) != 0) ? 1u : 0u;
+  out->link_up = (netif_is_link_up(&gnetif) != 0) ? 1u : 0u;
+  out->is_default = (netif_default == &gnetif) ? 1u : 0u;
+  out->mtu = (uint16_t)gnetif.mtu;
+  out->flags = (uint16_t)gnetif.flags;
+  memcpy(out->mac, gnetif.hwaddr, sizeof(out->mac));
+
+  lwip_format_ipv4(netif_ip4_addr(&gnetif), out->ip, sizeof(out->ip));
+  lwip_format_ipv4(netif_ip4_netmask(&gnetif), out->netmask, sizeof(out->netmask));
+  lwip_format_ipv4(netif_ip4_gw(&gnetif), out->gateway, sizeof(out->gateway));
+
+  return APP_OK;
+}
 
 /* USER CODE END 1 */
 uint32_t EthernetLinkTimer;

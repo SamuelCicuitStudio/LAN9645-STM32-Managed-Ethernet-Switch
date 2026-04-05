@@ -31,6 +31,8 @@ static const char *diag_router_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES1_LINK_TIMEOUT: return "DIAG_EVT_LAN_SERDES1_LINK_TIMEOUT";
     case DIAG_EVT_LAN_IRQ_STUCK: return "DIAG_EVT_LAN_IRQ_STUCK";
+    case DIAG_EVT_LAN_IRQ_CAUSE: return "DIAG_EVT_LAN_IRQ_CAUSE";
+    case DIAG_EVT_LAN_IRQ_ACK_FAIL: return "DIAG_EVT_LAN_IRQ_ACK_FAIL";
     case DIAG_EVT_LAN_DROP_COUNTER_ALERT: return "DIAG_EVT_LAN_DROP_COUNTER_ALERT";
     default: return "DIAG_EVT_UNKNOWN";
   }

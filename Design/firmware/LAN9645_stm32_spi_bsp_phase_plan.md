@@ -203,10 +203,13 @@ Expose complete SPI bring-up status and failure causes through serial interfaces
    - IF_CTRL/IF_CFGSTAT dump
    - profile status
 2. Ensure errors route to USB CDC and UART4 uniformly.
+3. Keep CLI scope limited to bring-up baseline at this phase.
+4. Defer advanced per-feature controls and advanced error reporting to the matching later phases (11-16).
 
 ### Exit Criteria
 1. All critical bring-up checks can be run from CLI.
 2. Error messages identify phase and failing register.
+3. Advanced feature CLI is not exposed before underlying BSP feature implementation is validated.
 
 ## Phase 9: LwIP + Ping Bring-up
 ### Objective

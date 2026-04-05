@@ -34,6 +34,7 @@
 #include "lwip/netif.h"
 #include "lwip/timeouts.h"
 #include "ethernetif.h"
+#include "app_common_types.h"
 
 /* Includes for RTOS ---------------------------------------------------------*/
 #if WITH_RTOS
@@ -41,6 +42,18 @@
 #endif /* WITH_RTOS */
 
 /* USER CODE BEGIN 0 */
+typedef struct {
+  uint8_t netif_up;
+  uint8_t link_up;
+  uint8_t is_default;
+  uint16_t mtu;
+  uint16_t flags;
+  uint8_t mac[6];
+  char ip[16];
+  char netmask[16];
+  char gateway[16];
+  uint32_t sample_tick_ms;
+} lwip_runtime_state_t;
 
 /* USER CODE END 0 */
 
@@ -58,6 +71,7 @@ void MX_LWIP_Init(void);
  *   - Handle timeouts if NO_SYS_NO_TIMERS not set
  */
 void MX_LWIP_Process(void);
+app_status_t lwip_get_runtime_state(lwip_runtime_state_t *out);
 
 /* USER CODE END 1 */
 #endif /* WITH_RTOS */

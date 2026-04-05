@@ -15,8 +15,11 @@ extern "C" {
 
 #define LAN9645_SPI_DEFAULT_TIMEOUT_MS (20u)
 #define LAN9645_SPI_DEFAULT_RETRIES    (2u)
-#define LAN9645_SPI_DEFAULT_PADDING    (1u)
-#define LAN9645_SPI_MAX_PADDING        (8u)
+#define LAN9645_SPI_DEFAULT_PADDING    (15u)
+#define LAN9645_SPI_MAX_PADDING        (15u)
+#define LAN9645_SPI_REG_ACCESS_TIME_US (2u)
+#define LAN9645_SPI_PADDING_NUM_CONST  (1500u)
+#define LAN9645_SPI_PADDING_DEN_CONST  (8000u)
 
 typedef struct {
   SPI_HandleTypeDef *hspi;
@@ -38,6 +41,7 @@ app_status_t lan9645_spi_init(
 app_status_t lan9645_spi_set_padding(lan9645_spi_t *bus, uint8_t padding_bytes);
 app_status_t lan9645_spi_set_timeout(lan9645_spi_t *bus, uint32_t timeout_ms);
 app_status_t lan9645_spi_set_retries(lan9645_spi_t *bus, uint8_t retries);
+app_status_t lan9645_spi_calc_padding(uint32_t spi_clock_hz, uint8_t *padding_bytes);
 
 app_status_t lan9645_spi_read32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t *value);
 app_status_t lan9645_spi_write32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t value);

@@ -4,19 +4,16 @@
 
 #define LAN9645_TGT_BASE_QS        (0x00008000u)
 #define LAN9645_TGT_BASE_CHIP_TOP  (0x00010000u)
-#define LAN9645_TGT_BASE_REW       (0x00014000u)
-#define LAN9645_TGT_BASE_SYS       (0x00028000u)
-#define LAN9645_TGT_BASE_DEV0      (0x00034000u)
+#define LAN9645_TGT_BASE_REW       (0x00018000u)
+#define LAN9645_TGT_BASE_SYS       (0x0002C000u)
+#define LAN9645_TGT_BASE_DEV0      (0x00038000u)
 #define LAN9645_TGT_BASE_DEV_STEP  (0x00004000u)
 #define LAN9645_TGT_BASE_QSYS      (0x00100000u)
 #define LAN9645_TGT_BASE_AFI       (0x00120000u)
 #define LAN9645_TGT_BASE_ANA       (0x00140000u)
+#define LAN9645_TGT_BASE_CPU       (0x00520000u)
 #define LAN9645_TGT_BASE_GCB       (0x00004000u)
-/*
- * HSIO offset is board-family dependent across Ocelot-derivative devices.
- * This default follows the current project baseline and must be validated.
- */
-#define LAN9645_TGT_BASE_HSIO      (0x0000C000u)
+#define LAN9645_TGT_BASE_HSIO      (0x00030000u)
 
 static const lan9645_target_map_entry_t s_board_target_map[] = {
   { LAN9645_TARGET_GCB, 0u, LAN9645_TGT_BASE_GCB },
@@ -36,7 +33,8 @@ static const lan9645_target_map_entry_t s_board_target_map[] = {
   { LAN9645_TARGET_DEV, 8u, LAN9645_TGT_BASE_DEV0 + (8u * LAN9645_TGT_BASE_DEV_STEP) },
   { LAN9645_TARGET_QSYS, 0u, LAN9645_TGT_BASE_QSYS },
   { LAN9645_TARGET_AFI, 0u, LAN9645_TGT_BASE_AFI },
-  { LAN9645_TARGET_ANA, 0u, LAN9645_TGT_BASE_ANA }
+  { LAN9645_TARGET_ANA, 0u, LAN9645_TGT_BASE_ANA },
+  { LAN9645_TARGET_CPU, 0u, LAN9645_TGT_BASE_CPU }
 };
 
 app_status_t lan9645_target_map_apply(

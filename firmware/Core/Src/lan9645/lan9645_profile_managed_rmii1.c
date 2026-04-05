@@ -12,6 +12,40 @@
 #define LAN9645_PROFILE_LINK_SPEED_10    (1u)
 #define LAN9645_PROFILE_LINK_SPEED_100   (2u)
 #define LAN9645_PROFILE_LINK_SPEED_1000  (3u)
+#define LAN9645_PROFILE_CPU_DEV_IRQ_ENABLE_MASK (0x1FFu)
+
+static app_status_t lan9645_profile_read_desc(
+  lan9645_core_t *core,
+  const lan9645_reg_desc_t *desc,
+  uint32_t group_instance,
+  uint32_t reg_instance,
+  uint32_t *value
+)
+{
+  if ((core == NULL) || (core->reg == NULL) || (desc == NULL) || (value == NULL)) {
+    return APP_EINVAL;
+  }
+
+  return lan9645_reg_read32_desc(core->reg, desc, 0u, group_instance, reg_instance, value);
+}
+
+static app_status_t lan9645_profile_verify_masked(
+  lan9645_core_t *core,
+  const lan9645_reg_desc_t *desc,
+  uint32_t group_instance,
+  uint32_t reg_instance,
+  uint32_t mask,
+  uint32_t expected
+)
+{
+  uint32_t val = 0u;
+  app_status_t st = lan9645_profile_read_desc(core, desc, group_instance, reg_instance, &val);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  return (((val & mask) == (expected & mask)) ? APP_OK : APP_EIO);
+}
 
 static app_status_t lan9645_profile_read_feat_disable(
   lan9645_core_t *core,
@@ -112,9 +146,24 @@ static app_status_t lan9645_profile_configure_dev_mac(
 
 static app_status_t lan9645_profile_configure_ext_cpu(lan9645_core_t *core)
 {
+  uint32_t mask = 0u;
+  uint32_t value = 0u;
+
   if ((core == NULL) || (core->reg == NULL)) {
     return APP_EINVAL;
   }
+
+  mask =
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT |
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK |
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA |
+    LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA;
+
+  value =
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT_SET(LAN9645_PROFILE_DEV_CPU_RMII) |
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK_SET(0xFFu) |
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA |
+    LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA;
 
   return lan9645_reg_rmw32_desc(
     core->reg,
@@ -122,9 +171,134 @@ static app_status_t lan9645_profile_configure_ext_cpu(lan9645_core_t *core)
     0u,
     0u,
     0u,
-    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT | LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK,
-    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT_SET(LAN9645_PROFILE_DEV_CPU_RMII) |
-      LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK_SET(0xFFu)
+    mask,
+    value
+  );
+}
+
+static app_status_t lan9645_profile_configure_irq(lan9645_core_t *core)
+{
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->reg == NULL)) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_reg_rmw32_desc(
+    core->reg,
+    &LAN9645_REG_ANA_ANAINTR,
+    0u,
+    0u,
+    0u,
+    LAN9645_ANA_ANAINTR_INTR_ENA,
+    LAN9645_ANA_ANAINTR_INTR_ENA
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_rmw32_desc(
+    core->reg,
+    &LAN9645_REG_CPU_DEV_INTR_ENA,
+    0u,
+    0u,
+    0u,
+    LAN9645_CPU_DEV_INTR_MASK,
+    LAN9645_PROFILE_CPU_DEV_IRQ_ENABLE_MASK
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  return APP_OK;
+}
+
+static app_status_t lan9645_profile_verify_dev_mac(
+  lan9645_core_t *core,
+  uint32_t dev,
+  uint32_t expected_link_speed,
+  uint8_t expected_full_duplex
+)
+{
+  uint32_t speed_expected = LAN9645_DEV_CLOCK_CFG_LINK_SPEED_SET(expected_link_speed);
+  uint32_t mode_expected = (expected_full_duplex != 0u) ? LAN9645_DEV_MAC_MODE_CFG_FDX_ENA : 0u;
+  app_status_t st = APP_OK;
+
+  st = lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_DEV_CLOCK_CFG,
+    dev,
+    0u,
+    LAN9645_DEV_CLOCK_CFG_LINK_SPEED |
+      LAN9645_DEV_CLOCK_CFG_MAC_TX_RST |
+      LAN9645_DEV_CLOCK_CFG_MAC_RX_RST |
+      LAN9645_DEV_CLOCK_CFG_PCS_TX_RST |
+      LAN9645_DEV_CLOCK_CFG_PCS_RX_RST |
+      LAN9645_DEV_CLOCK_CFG_PORT_RST |
+      LAN9645_DEV_CLOCK_CFG_PHY_RST,
+    speed_expected
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_DEV_MAC_MODE_CFG,
+    dev,
+    0u,
+    LAN9645_DEV_MAC_MODE_CFG_GIGA_MODE_ENA | LAN9645_DEV_MAC_MODE_CFG_FDX_ENA,
+    mode_expected
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  return lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_DEV_MAC_ENA_CFG,
+    dev,
+    0u,
+    LAN9645_DEV_MAC_ENA_CFG_TX_ENA | LAN9645_DEV_MAC_ENA_CFG_RX_ENA,
+    LAN9645_DEV_MAC_ENA_CFG_TX_ENA | LAN9645_DEV_MAC_ENA_CFG_RX_ENA
+  );
+}
+
+static app_status_t lan9645_profile_verify_port_enabled(lan9645_core_t *core, uint32_t port)
+{
+  return lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_QSYS_SW_PORT_MODE,
+    0u,
+    port,
+    LAN9645_QSYS_SW_PORT_MODE_PORT_ENA,
+    LAN9645_QSYS_SW_PORT_MODE_PORT_ENA
+  );
+}
+
+static app_status_t lan9645_profile_verify_irq(lan9645_core_t *core)
+{
+  app_status_t st = APP_OK;
+
+  st = lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_ANA_ANAINTR,
+    0u,
+    0u,
+    LAN9645_ANA_ANAINTR_INTR_ENA,
+    LAN9645_ANA_ANAINTR_INTR_ENA
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  return lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_CPU_DEV_INTR_ENA,
+    0u,
+    0u,
+    LAN9645_CPU_DEV_INTR_MASK,
+    LAN9645_PROFILE_CPU_DEV_IRQ_ENABLE_MASK
   );
 }
 
@@ -133,7 +307,10 @@ app_status_t lan9645_profile_managed_rmii1_apply(
   lan9645_profile_result_t *out
 )
 {
+  uint32_t chip_id = 0u;
   uint32_t feat_disable = 0u;
+  uint32_t ext_cpu_cfg = 0u;
+  uint32_t ports_enabled_mask = 0u;
   app_status_t st = APP_OK;
 
   if (core == NULL) {
@@ -141,6 +318,11 @@ app_status_t lan9645_profile_managed_rmii1_apply(
   }
   if ((core->initialized == 0u) || (core->reg == NULL)) {
     return APP_ESTATE;
+  }
+
+  st = lan9645_core_read_chip_id(core, &chip_id);
+  if (st != APP_OK) {
+    return st;
   }
 
   st = lan9645_core_soft_reset(core, 0u);
@@ -154,6 +336,11 @@ app_status_t lan9645_profile_managed_rmii1_apply(
   }
 
   st = lan9645_profile_configure_ext_cpu(core);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_configure_irq(core);
   if (st != APP_OK) {
     return st;
   }
@@ -186,8 +373,70 @@ app_status_t lan9645_profile_managed_rmii1_apply(
     return st;
   }
 
+  st = lan9645_profile_read_desc(core, &LAN9645_REG_QSYS_EXT_CPU_CFG, 0u, 0u, &ext_cpu_cfg);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_verify_masked(
+    core,
+    &LAN9645_REG_QSYS_EXT_CPU_CFG,
+    0u,
+    0u,
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT |
+      LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK |
+      LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA |
+      LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA,
+    LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT_SET(LAN9645_PROFILE_DEV_CPU_RMII) |
+      LAN9645_QSYS_EXT_CPU_CFG_EXT_CPUQ_MSK_SET(0xFFu) |
+      LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_KILL_ENA |
+      LAN9645_QSYS_EXT_CPU_CFG_INT_CPU_KILL_ENA
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_verify_irq(core);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_verify_dev_mac(core, LAN9645_PROFILE_DEV_CUPHY0, LAN9645_PROFILE_LINK_SPEED_100, 1u);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_profile_verify_dev_mac(core, LAN9645_PROFILE_DEV_CUPHY1, LAN9645_PROFILE_LINK_SPEED_100, 1u);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_profile_verify_dev_mac(core, LAN9645_PROFILE_DEV_CPU_RMII, LAN9645_PROFILE_LINK_SPEED_100, 1u);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_profile_verify_port_enabled(core, LAN9645_PROFILE_DEV_CUPHY0);
+  if (st != APP_OK) {
+    return st;
+  }
+  ports_enabled_mask |= (1u << LAN9645_PROFILE_DEV_CUPHY0);
+
+  st = lan9645_profile_verify_port_enabled(core, LAN9645_PROFILE_DEV_CUPHY1);
+  if (st != APP_OK) {
+    return st;
+  }
+  ports_enabled_mask |= (1u << LAN9645_PROFILE_DEV_CUPHY1);
+
+  st = lan9645_profile_verify_port_enabled(core, LAN9645_PROFILE_DEV_CPU_RMII);
+  if (st != APP_OK) {
+    return st;
+  }
+  ports_enabled_mask |= (1u << LAN9645_PROFILE_DEV_CPU_RMII);
+
   if (out != NULL) {
+    out->chip_id = chip_id;
     out->feat_disable = feat_disable;
+    out->ext_cpu_cfg = ext_cpu_cfg;
+    out->ports_enabled_mask = ports_enabled_mask;
   }
 
   return APP_OK;
