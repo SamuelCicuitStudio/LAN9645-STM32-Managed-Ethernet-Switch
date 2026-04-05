@@ -36,6 +36,20 @@ extern "C" {
 #define LAN9645_SPI_PADDING_DEN_CONST  (8000u)
 
 /**
+ * @brief Runtime telemetry counters for LAN9645 SPI transport operations.
+ */
+typedef struct {
+  uint32_t read_count;        /**< Number of read transactions requested. */
+  uint32_t write_count;       /**< Number of write transactions requested. */
+  uint32_t retry_count;       /**< Number of extra retry attempts consumed. */
+  uint32_t failure_count;     /**< Number of transactions that failed after retries. */
+  uint32_t timeout_count;     /**< Number of failed transactions due to timeout. */
+  uint32_t invalid_arg_count; /**< Number of rejected calls due to invalid state/arguments. */
+  int32_t last_status;        /**< Last transaction status cast from @ref app_status_t. */
+  uint32_t last_reg_addr;     /**< Last register address touched by read/write operation. */
+} lan9645_spi_stats_t;
+
+/**
  * @brief SPI bus context used for all LAN9645 register transactions.
  */
 typedef struct {
@@ -46,6 +60,7 @@ typedef struct {
   uint8_t retries;         /**< Number of retries attempted after a failed transaction. */
   uint32_t timeout_ms;     /**< HAL timeout used for each blocking SPI transfer. */
   uint8_t initialized;     /**< Set after the SPI bus context has been initialized. */
+  lan9645_spi_stats_t stats; /**< Runtime transport telemetry counters. */
 } lan9645_spi_t;
 
 /**
@@ -94,6 +109,25 @@ app_status_t lan9645_spi_set_timeout(lan9645_spi_t *bus, uint32_t timeout_ms);
  * @return @ref APP_OK on success.
  */
 app_status_t lan9645_spi_set_retries(lan9645_spi_t *bus, uint8_t retries);
+
+/**
+ * @brief Resets transport telemetry counters.
+ *
+ * @param[in,out] bus SPI bus context.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_spi_reset_stats(lan9645_spi_t *bus);
+
+/**
+ * @brief Returns a snapshot of transport telemetry counters.
+ *
+ * @param[in] bus SPI bus context.
+ * @param[out] out Destination counter snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_spi_get_stats(const lan9645_spi_t *bus, lan9645_spi_stats_t *out);
 
 /**
  * @brief Estimates the required LAN9645 SPI read padding from SPI clock rate.

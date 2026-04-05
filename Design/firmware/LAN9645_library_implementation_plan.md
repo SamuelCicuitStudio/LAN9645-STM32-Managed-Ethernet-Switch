@@ -283,6 +283,48 @@ Rules for this locked feature pass:
 - no advanced TSN/VCAP/FRER/PTP controls are added in this pass.
 - physical validation rows remain `not performed` until board return.
 
+## 2.6.1) F1 Progress Snapshot (April 5, 2026)
+
+F1 objective:
+- SPI transport telemetry and deterministic visibility of communication failures.
+
+Implemented now in firmware:
+- `Core/Inc/lan9645/lan9645_spi.h`
+  - added `lan9645_spi_stats_t` counter model:
+    - `read_count`
+    - `write_count`
+    - `retry_count`
+    - `failure_count`
+    - `timeout_count`
+    - `invalid_arg_count`
+    - `last_status`
+    - `last_reg_addr`
+  - added APIs:
+    - `lan9645_spi_reset_stats()`
+    - `lan9645_spi_get_stats()`
+- `Core/Src/lan9645/lan9645_spi.c`
+  - SPI HAL errors now distinguish timeout (`APP_ETIMEOUT`) from generic I/O (`APP_EIO`)
+  - counters updated on every read/write/retry/failure path
+  - invalid argument/state paths update telemetry
+  - last status/address tracking added for post-failure visibility
+- `Core/Src/cli/cli_core.c`
+  - added `spi stats`
+  - added `spi stats clear`
+  - fixed parser to handle:
+    - `spi status`
+    - `spi stats`
+    - `spi stats clear`
+
+F1 software status:
+- **Partially complete**
+
+Remaining to close F1:
+1. Include SPI telemetry line in `status all` aggregate output.
+2. Ensure SPI transport failures are mirrored into diagnostics event stream (not only CLI command return codes).
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)

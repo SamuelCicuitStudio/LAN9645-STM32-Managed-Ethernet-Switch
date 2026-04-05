@@ -36,6 +36,10 @@ static uint8_t s_cli_phy_ready = 0u;
 
 /** @brief Forward declaration used by composite bring-up commands. */
 static app_status_t cli_cmd_spi_status(void);
+/** @brief Forward declaration for SPI transport counters command. */
+static app_status_t cli_cmd_spi_stats(void);
+/** @brief Forward declaration for SPI transport counters reset command. */
+static app_status_t cli_cmd_spi_stats_clear(void);
 
 /** @brief Compares two strings without case sensitivity. */
 static uint8_t cli_eq(const char *a, const char *b)
@@ -251,6 +255,8 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  irq clear\r\n");
   (void)cli_writef("  irq ack\r\n");
   (void)cli_writef("  spi status\r\n");
+  (void)cli_writef("  spi stats\r\n");
+  (void)cli_writef("  spi stats clear\r\n");
   (void)cli_writef("  reg read <0xADDR>\r\n");
   (void)cli_writef("  reg write <0xADDR> <0xVALUE>\r\n");
   (void)cli_writef("  sanity spi <0xADDR> [count]\r\n");
@@ -848,6 +854,56 @@ static app_status_t cli_cmd_spi_status(void)
   return APP_OK;
 }
 
+/** @brief Prints SPI transport telemetry counters from the LAN9645 bus layer. */
+static app_status_t cli_cmd_spi_stats(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_spi_stats_t stats = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL) || (core->reg->spi == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_spi_get_stats(core->reg->spi, &stats);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "spi stats rd=%lu wr=%lu retry=%lu fail=%lu timeout=%lu inval=%lu last_st=%ld last_addr=0x%08lX\r\n",
+    (unsigned long)stats.read_count,
+    (unsigned long)stats.write_count,
+    (unsigned long)stats.retry_count,
+    (unsigned long)stats.failure_count,
+    (unsigned long)stats.timeout_count,
+    (unsigned long)stats.invalid_arg_count,
+    (long)stats.last_status,
+    (unsigned long)stats.last_reg_addr
+  );
+
+  return APP_OK;
+}
+
+/** @brief Resets SPI transport telemetry counters. */
+static app_status_t cli_cmd_spi_stats_clear(void)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL) || (core->reg->spi == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_spi_reset_stats(core->reg->spi);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef("spi stats cleared\r\n");
+  return APP_OK;
+}
+
 /** @brief Reads and decodes the LAN9645 chip identifier. */
 static app_status_t cli_cmd_lan_id(void)
 {
@@ -1234,10 +1290,22 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
   }
 
   if (cli_eq(tokens[0], "spi") != 0u) {
-    if ((ntok < 2u) || (cli_eq(tokens[1], "status") == 0u)) {
+    if (ntok < 2u) {
       return APP_EINVAL;
     }
-    return cli_cmd_spi_status();
+    if (cli_eq(tokens[1], "status") != 0u) {
+      return cli_cmd_spi_status();
+    }
+    if (cli_eq(tokens[1], "stats") != 0u) {
+      if (ntok == 2u) {
+        return cli_cmd_spi_stats();
+      }
+      if ((ntok == 3u) && (cli_eq(tokens[2], "clear") != 0u)) {
+        return cli_cmd_spi_stats_clear();
+      }
+      return APP_EINVAL;
+    }
+    return APP_EINVAL;
   }
 
   if (cli_eq(tokens[0], "eth") != 0u) {

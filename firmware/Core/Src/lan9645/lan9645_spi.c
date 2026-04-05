@@ -13,6 +13,22 @@
 #define LAN9645_SPI_READ_FRAME_MAX  (LAN9645_SPI_REG_ADDR_SIZE + LAN9645_SPI_MAX_PADDING + LAN9645_SPI_REG_VALUE_SIZE)
 
 /**
+ * @brief Updates invalid-argument telemetry for one SPI API call.
+ *
+ * @param[in,out] bus SPI bus context when available.
+ * @param[in] st Status returned by the API call.
+ */
+static void lan9645_spi_note_invalid(lan9645_spi_t *bus, app_status_t st)
+{
+  if (bus == NULL) {
+    return;
+  }
+
+  bus->stats.invalid_arg_count++;
+  bus->stats.last_status = (int32_t)st;
+}
+
+/**
  * @brief Converts a byte-addressed register location into the 23-bit SPI word address.
  *
  * @param[in] reg_addr Absolute register address in bytes.
@@ -55,8 +71,11 @@ static void lan9645_spi_cs_deassert(const lan9645_spi_t *bus)
  */
 static app_status_t lan9645_spi_tx(lan9645_spi_t *bus, const uint8_t *tx, uint16_t len)
 {
-  if (HAL_SPI_Transmit(bus->hspi, (uint8_t *)tx, len, bus->timeout_ms) != HAL_OK) {
-    return APP_EIO;
+  HAL_StatusTypeDef hal_st = HAL_OK;
+
+  hal_st = HAL_SPI_Transmit(bus->hspi, (uint8_t *)tx, len, bus->timeout_ms);
+  if (hal_st != HAL_OK) {
+    return (hal_st == HAL_TIMEOUT) ? APP_ETIMEOUT : APP_EIO;
   }
 
   return APP_OK;
@@ -79,8 +98,11 @@ static app_status_t lan9645_spi_txrx(
   uint16_t len
 )
 {
-  if (HAL_SPI_TransmitReceive(bus->hspi, (uint8_t *)tx, rx, len, bus->timeout_ms) != HAL_OK) {
-    return APP_EIO;
+  HAL_StatusTypeDef hal_st = HAL_OK;
+
+  hal_st = HAL_SPI_TransmitReceive(bus->hspi, (uint8_t *)tx, rx, len, bus->timeout_ms);
+  if (hal_st != HAL_OK) {
+    return (hal_st == HAL_TIMEOUT) ? APP_ETIMEOUT : APP_EIO;
   }
 
   return APP_OK;
@@ -160,13 +182,16 @@ app_status_t lan9645_spi_set_padding(lan9645_spi_t *bus, uint8_t padding_bytes)
 {
   app_status_t st = lan9645_spi_check_ctx(bus);
   if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
     return st;
   }
   if (padding_bytes > LAN9645_SPI_MAX_PADDING) {
+    lan9645_spi_note_invalid(bus, APP_EINVAL);
     return APP_EINVAL;
   }
 
   bus->padding_bytes = padding_bytes;
+  bus->stats.last_status = (int32_t)APP_OK;
   return APP_OK;
 }
 
@@ -182,13 +207,16 @@ app_status_t lan9645_spi_set_timeout(lan9645_spi_t *bus, uint32_t timeout_ms)
 {
   app_status_t st = lan9645_spi_check_ctx(bus);
   if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
     return st;
   }
   if (timeout_ms == 0u) {
+    lan9645_spi_note_invalid(bus, APP_EINVAL);
     return APP_EINVAL;
   }
 
   bus->timeout_ms = timeout_ms;
+  bus->stats.last_status = (int32_t)APP_OK;
   return APP_OK;
 }
 
@@ -204,10 +232,53 @@ app_status_t lan9645_spi_set_retries(lan9645_spi_t *bus, uint8_t retries)
 {
   app_status_t st = lan9645_spi_check_ctx(bus);
   if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
     return st;
   }
 
   bus->retries = retries;
+  bus->stats.last_status = (int32_t)APP_OK;
+  return APP_OK;
+}
+
+/**
+ * @brief Clears all SPI transport telemetry counters.
+ *
+ * @param[in,out] bus SPI bus context.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_spi_reset_stats(lan9645_spi_t *bus)
+{
+  app_status_t st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
+    return st;
+  }
+
+  memset(&bus->stats, 0, sizeof(bus->stats));
+  return APP_OK;
+}
+
+/**
+ * @brief Copies SPI transport telemetry counters for diagnostics.
+ *
+ * @param[in] bus SPI bus context.
+ * @param[out] out Destination snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_spi_get_stats(const lan9645_spi_t *bus, lan9645_spi_stats_t *out)
+{
+  app_status_t st = lan9645_spi_check_ctx(bus);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (out == NULL) {
+    return APP_EINVAL;
+  }
+
+  *out = bus->stats;
   return APP_OK;
 }
 
@@ -262,14 +333,24 @@ app_status_t lan9645_spi_read32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t 
 
   st = lan9645_spi_check_ctx(bus);
   if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
     return st;
   }
   if (value == NULL) {
+    bus->stats.invalid_arg_count++;
+    bus->stats.last_status = (int32_t)APP_EINVAL;
+    bus->stats.last_reg_addr = reg_addr;
     return APP_EINVAL;
   }
   if ((reg_addr & 0x3u) != 0u) {
+    bus->stats.invalid_arg_count++;
+    bus->stats.last_status = (int32_t)APP_EINVAL;
+    bus->stats.last_reg_addr = reg_addr;
     return APP_EINVAL;
   }
+
+  bus->stats.read_count++;
+  bus->stats.last_reg_addr = reg_addr;
 
   si_addr = lan9645_spi_reg_to_si_addr(reg_addr);
   frame_len = (uint16_t)(LAN9645_SPI_REG_ADDR_SIZE + bus->padding_bytes + LAN9645_SPI_REG_VALUE_SIZE);
@@ -281,6 +362,10 @@ app_status_t lan9645_spi_read32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t 
   tx[2] = (uint8_t)(si_addr & 0xFFu);
 
   for (attempt = 0u; attempt <= bus->retries; ++attempt) {
+    if (attempt > 0u) {
+      bus->stats.retry_count++;
+    }
+
     lan9645_spi_cs_assert(bus);
     st = lan9645_spi_txrx(bus, tx, rx, frame_len);
     lan9645_spi_cs_deassert(bus);
@@ -291,12 +376,18 @@ app_status_t lan9645_spi_read32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t 
         ((uint32_t)rx[value_offset + 1u] << 8) |
         ((uint32_t)rx[value_offset + 2u] << 16) |
         ((uint32_t)rx[value_offset + 3u] << 24);
+      bus->stats.last_status = (int32_t)APP_OK;
       return APP_OK;
     }
 
     HAL_Delay(1u);
   }
 
+  bus->stats.failure_count++;
+  if (st == APP_ETIMEOUT) {
+    bus->stats.timeout_count++;
+  }
+  bus->stats.last_status = (int32_t)st;
   return st;
 }
 
@@ -318,11 +409,18 @@ app_status_t lan9645_spi_write32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t
 
   st = lan9645_spi_check_ctx(bus);
   if (st != APP_OK) {
+    lan9645_spi_note_invalid(bus, st);
     return st;
   }
   if ((reg_addr & 0x3u) != 0u) {
+    bus->stats.invalid_arg_count++;
+    bus->stats.last_status = (int32_t)APP_EINVAL;
+    bus->stats.last_reg_addr = reg_addr;
     return APP_EINVAL;
   }
+
+  bus->stats.write_count++;
+  bus->stats.last_reg_addr = reg_addr;
 
   si_addr = lan9645_spi_reg_to_si_addr(reg_addr);
 
@@ -335,16 +433,26 @@ app_status_t lan9645_spi_write32(lan9645_spi_t *bus, uint32_t reg_addr, uint32_t
   tx[6] = (uint8_t)((value >> 24) & 0xFFu);
 
   for (attempt = 0u; attempt <= bus->retries; ++attempt) {
+    if (attempt > 0u) {
+      bus->stats.retry_count++;
+    }
+
     lan9645_spi_cs_assert(bus);
     st = lan9645_spi_tx(bus, tx, (uint16_t)sizeof(tx));
     lan9645_spi_cs_deassert(bus);
 
     if (st == APP_OK) {
+      bus->stats.last_status = (int32_t)APP_OK;
       return APP_OK;
     }
 
     HAL_Delay(1u);
   }
 
+  bus->stats.failure_count++;
+  if (st == APP_ETIMEOUT) {
+    bus->stats.timeout_count++;
+  }
+  bus->stats.last_status = (int32_t)st;
   return st;
 }
