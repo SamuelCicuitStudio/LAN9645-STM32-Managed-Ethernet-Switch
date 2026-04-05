@@ -20,6 +20,7 @@
 #include "lan9645/lan9645_reg.h"
 #include "lan9645/lan9645_runtime.h"
 #include "lan9645/lan9645_user_phy_adapter.h"
+#include "lan9645/lan9645_vlan.h"
 #include "lwip.h"
 
 #define CLI_MAX_LINE_LEN      (160u)
@@ -143,6 +144,7 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_LAN_SPI_IFSTAT: return "LAN_SPI_IFSTAT";
     case DIAG_EVT_LAN_SPI_TIMEOUT: return "LAN_SPI_TIMEOUT";
     case DIAG_EVT_LAN_PORT_CFG_FAIL: return "LAN_PORT_CFG_FAIL";
+    case DIAG_EVT_LAN_VLAN_CFG_FAIL: return "LAN_VLAN_CFG_FAIL";
     case DIAG_EVT_LAN_STRAP_EXPECTATION: return "LAN_STRAP_EXPECTATION";
     case DIAG_EVT_LAN_RMII_LINK_TIMEOUT: return "LAN_RMII_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "LAN_SERDES0_LINK_TIMEOUT";
@@ -271,6 +273,8 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  port select <0|1>\r\n");
   (void)cli_writef("  port admin <0|1|8> <up|down>\r\n");
   (void)cli_writef("  port mode <0|1|8> <10|100> <half|full>\r\n");
+  (void)cli_writef("  vlan set <vid> <member_mask_hex> <untag_mask_hex>\r\n");
+  (void)cli_writef("  vlan show <vid>\r\n");
   (void)cli_writef("  eth show\r\n");
   (void)cli_writef("  net show\r\n");
   (void)cli_writef("  net check\r\n");
@@ -663,6 +667,57 @@ static app_status_t cli_cmd_port_mode(uint8_t port, uint16_t speed_mbps, uint8_t
     (full_duplex != 0u) ? "full" : "half"
   );
   return cli_cmd_port_show_cfg(port);
+}
+
+/** @brief Applies one VLAN baseline entry using PGID-based managed profile control. */
+static app_status_t cli_cmd_vlan_set(uint16_t vid, uint16_t member_mask, uint16_t untag_mask)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_vlan_set(core, vid, member_mask, untag_mask);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "vlan set vid=%u member=0x%03X untag=0x%03X\r\n",
+    (unsigned int)vid,
+    (unsigned int)member_mask,
+    (unsigned int)untag_mask
+  );
+  return APP_OK;
+}
+
+/** @brief Prints one VLAN baseline entry snapshot. */
+static app_status_t cli_cmd_vlan_show(uint16_t vid)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_vlan_entry_t entry = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+
+  st = lan9645_vlan_get(core, vid, &entry);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "vlan vid=%u configured=%u obey=%u member=0x%03X untag=0x%03X\r\n",
+    (unsigned int)vid,
+    (unsigned int)entry.configured,
+    (unsigned int)entry.obey_vlan,
+    (unsigned int)entry.member_mask,
+    (unsigned int)entry.untag_mask
+  );
+  return APP_OK;
 }
 
 /** @brief Prints a combined application, LAN, IRQ, ETH, and diagnostics snapshot. */
@@ -1454,6 +1509,44 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
         return APP_EINVAL;
       }
       return cli_cmd_port_mode((uint8_t)p, (uint16_t)speed, full_duplex);
+    }
+    return APP_EINVAL;
+  }
+
+  if (cli_eq(tokens[0], "vlan") != 0u) {
+    uint32_t vid = 0u;
+    if (ntok < 3u) {
+      return APP_EINVAL;
+    }
+    if (cli_parse_u32(tokens[2], &vid) != APP_OK) {
+      return APP_EINVAL;
+    }
+    if (vid > LAN9645_VLAN_VID_MAX) {
+      return APP_EINVAL;
+    }
+
+    if (cli_eq(tokens[1], "show") != 0u) {
+      return cli_cmd_vlan_show((uint16_t)vid);
+    }
+    if (cli_eq(tokens[1], "set") != 0u) {
+      uint32_t member_mask = 0u;
+      uint32_t untag_mask = 0u;
+      if (ntok < 5u) {
+        return APP_EINVAL;
+      }
+      if (cli_parse_u32(tokens[3], &member_mask) != APP_OK) {
+        return APP_EINVAL;
+      }
+      if (cli_parse_u32(tokens[4], &untag_mask) != APP_OK) {
+        return APP_EINVAL;
+      }
+      if ((member_mask & (uint32_t)(~LAN9645_VLAN_MEMBER_MASK_ALL)) != 0u) {
+        return APP_EINVAL;
+      }
+      if ((untag_mask & (uint32_t)(~LAN9645_VLAN_MEMBER_MASK_ALL)) != 0u) {
+        return APP_EINVAL;
+      }
+      return cli_cmd_vlan_set((uint16_t)vid, (uint16_t)member_mask, (uint16_t)untag_mask);
     }
     return APP_EINVAL;
   }

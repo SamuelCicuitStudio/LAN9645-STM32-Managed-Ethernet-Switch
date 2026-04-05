@@ -368,6 +368,48 @@ F2 software status:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.3) F3 Progress Snapshot (April 5, 2026)
+
+F3 objective:
+- baseline VLAN control for managed mode with deterministic write/readback and CLI visibility.
+
+Implemented now in firmware:
+- `Core/Inc/lan9645/lan9645_regs.h`
+  - added VLAN-related field masks aligned with local Linux LAN9645x register definitions:
+    - `ANA_PGID.PGID`
+    - `ANA_PGID_CFG.SAN_ENA/CPUQ_DST_PGID/OBEY_VLAN`
+    - `ANA_AGGR_CFG` aggregation selector bits
+- `Core/Inc/lan9645/lan9645_vlan.h` (new)
+  - added baseline VLAN API:
+    - `lan9645_vlan_init()`
+    - `lan9645_vlan_set()`
+    - `lan9645_vlan_get()`
+  - locked baseline scope:
+    - `vid` range `0..89` (maps to `ANA_PGID(vid)`/`ANA_PGID_CFG(vid)`)
+    - member-mask width `10` ports (`0x03FF`)
+- `Core/Src/lan9645/lan9645_vlan.c` (new)
+  - implemented register writes + readback verification for:
+    - `ANA_PGID(vid)` member mask
+    - `ANA_PGID_CFG(vid)` with `OBEY_VLAN=1`
+  - implemented managed baseline for `ANA_AGGR_CFG` (DMAC+SMAC hash bits enabled)
+  - added deterministic diagnostics reporting on VLAN failures:
+    - `DIAG_EVT_LAN_VLAN_CFG_FAIL`
+- `Core/Src/cli/cli_core.c`
+  - added commands:
+    - `vlan set <vid> <member_mask_hex> <untag_mask_hex>`
+    - `vlan show <vid>`
+  - `untag_mask` is tracked in firmware state and reported by CLI for baseline policy tracing.
+- diagnostics label support updated:
+  - `Core/Inc/diag/diag_core.h`
+  - `Core/Src/diag/diag_router.c`
+  - `Core/Src/cli/cli_core.c`
+
+F3 software status:
+- **Software complete (baseline scope)**
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)
@@ -378,7 +420,7 @@ Hardware validation status:
 | S2 | Managed profile and reset path | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` reset/profile apply |
 | S3 | USER_PHY adapter model | Completed (baseline) | `lan9645_user_phy_adapter.*` + deterministic logical address initialization in `eth_custom_phy_interface.c` |
 | S4 | LwIP netif link integration | Completed (baseline) | `LWIP/Target/ethernetif.c` link check uses USER_PHY + MAC speed/duplex update |
-| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `serial show`, `irq`, `reg`, `port`, `sanity spi` commands |
+| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `serial show`, `irq`, `reg`, `port`, `vlan`, `sanity spi` commands |
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Deferred (not performed on hardware) | software progression assumes expected pass path; board execution pending |
