@@ -330,6 +330,44 @@ F1 closure evidence:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.2) F2 Progress Snapshot (April 5, 2026)
+
+F2 objective:
+- deterministic administrative and MAC mode control for ports `0`, `1`, and `8` with readback verification and diagnostics reporting.
+
+Implemented now in firmware:
+- `Core/Inc/lan9645/lan9645_core.h`
+  - added explicit F2 APIs:
+    - `lan9645_core_set_port_admin()`
+    - `lan9645_core_set_port_mode()`
+    - `lan9645_core_get_port_cfg()`
+  - added `lan9645_core_port_cfg_t` state snapshot model
+  - locked user-facing speed constants:
+    - `LAN9645_CORE_PORT_SPEED_10_MBPS`
+    - `LAN9645_CORE_PORT_SPEED_100_MBPS`
+- `Core/Src/lan9645/lan9645_core.c`
+  - implemented port admin write + readback verify on `QSYS_SW_PORT_MODE.PORT_ENA`
+  - implemented port mode write + readback verify on:
+    - `DEV_CLOCK_CFG.LINK_SPEED` with reset bits forced deasserted
+    - `DEV_MAC_MODE_CFG.GIGA_MODE_ENA=0` and duplex control
+    - `DEV_MAC_ENA_CFG.RX_ENA/TX_ENA=1`
+  - added deterministic diagnostics emission for port-config failures (`DIAG_EVT_LAN_PORT_CFG_FAIL`)
+- `Core/Src/cli/cli_core.c`
+  - added CLI commands:
+    - `port admin <0|1|8> <up|down>`
+    - `port mode <0|1|8> <10|100> <half|full>`
+    - `port show [0|1|8]` now prints decoded admin/speed/duplex/RX/TX state
+- diagnostics label support updated:
+  - `Core/Inc/diag/diag_core.h`
+  - `Core/Src/diag/diag_router.c`
+  - `Core/Src/cli/cli_core.c`
+
+F2 software status:
+- **Software complete**
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)

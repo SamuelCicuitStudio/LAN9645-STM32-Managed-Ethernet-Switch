@@ -18,6 +18,10 @@ extern "C" {
 
 /** @brief Default timeout used while waiting for the LAN9645 soft reset to complete. */
 #define LAN9645_CORE_SOFT_RESET_TIMEOUT_MS (200u)
+/** @brief Port speed selector used by the LAN9645 core API for 10 Mbit/s operation. */
+#define LAN9645_CORE_PORT_SPEED_10_MBPS    (10u)
+/** @brief Port speed selector used by the LAN9645 core API for 100 Mbit/s operation. */
+#define LAN9645_CORE_PORT_SPEED_100_MBPS   (100u)
 
 /**
  * @brief Runtime context for the LAN9645 switch core.
@@ -43,6 +47,17 @@ typedef struct {
   uint32_t dev_intr_ena;   /**< Device interrupt enable snapshot for the selected port. */
   uint32_t dev_intr_ident; /**< Device interrupt identify snapshot for the selected port. */
 } lan9645_core_irq_regs_t;
+
+/**
+ * @brief Snapshot of one switch-port administrative and MAC operating state.
+ */
+typedef struct {
+  uint8_t admin_up;     /**< Set when `QSYS_SW_PORT_MODE.PORT_ENA` is asserted. */
+  uint16_t speed_mbps;  /**< Decoded link speed target in Mbit/s (`10`, `100`, or `0` when unknown). */
+  uint8_t full_duplex;  /**< Set when `DEV_MAC_MODE_CFG.FDX_ENA` is asserted. */
+  uint8_t mac_rx_ena;   /**< Set when `DEV_MAC_ENA_CFG.RX_ENA` is asserted. */
+  uint8_t mac_tx_ena;   /**< Set when `DEV_MAC_ENA_CFG.TX_ENA` is asserted. */
+} lan9645_core_port_cfg_t;
 
 /**
  * @brief Initializes the LAN9645 core helper.
@@ -143,6 +158,47 @@ app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_
  * @return @ref APP_OK on success.
  */
 app_status_t lan9645_core_set_port_enable(lan9645_core_t *ctx, uint8_t port, uint8_t enable);
+
+/**
+ * @brief Sets the administrative forwarding state of one switch port with readback verification.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[in] up Set to 1 for administrative up, 0 for administrative down.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_set_port_admin(lan9645_core_t *ctx, uint8_t port, uint8_t up);
+
+/**
+ * @brief Sets one switch-port MAC mode for 10/100 operation with readback verification.
+ *
+ * The function always enforces `GIGA_MODE_ENA=0` and enables both TX/RX MAC paths.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[in] speed_mbps Requested speed in Mbit/s (`10` or `100`).
+ * @param[in] full_duplex Set to 1 for full duplex, 0 for half duplex.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_set_port_mode(
+  lan9645_core_t *ctx,
+  uint8_t port,
+  uint16_t speed_mbps,
+  uint8_t full_duplex
+);
+
+/**
+ * @brief Reads one switch-port administrative and MAC state snapshot.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[out] out Destination state snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_get_port_cfg(lan9645_core_t *ctx, uint8_t port, lan9645_core_port_cfg_t *out);
 
 /**
  * @brief Reads the sampled RGMII in-band link state for one external CPU interface.

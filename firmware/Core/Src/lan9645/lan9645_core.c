@@ -8,11 +8,25 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "diag/diag_core.h"
+#include "diag/diag_router.h"
 #include "lan9645/lan9645_spi.h"
 
 #define LAN9645_SPI_BYTE_ORDER_LE      (0x00000000u)
 
 #define LAN9645_CORE_SPI_SETUP_DELAY_MS (5u)
+#define LAN9645_CORE_MAX_DEV_PORT       (8u)
+#define LAN9645_CORE_SPEED_CODE_10      (1u)
+#define LAN9645_CORE_SPEED_CODE_100     (2u)
+
+#define LAN9645_CORE_PORT_STEP_ADMIN_SET        (1u)
+#define LAN9645_CORE_PORT_STEP_ADMIN_VERIFY     (2u)
+#define LAN9645_CORE_PORT_STEP_MODE_CLOCK_SET   (3u)
+#define LAN9645_CORE_PORT_STEP_MODE_CLOCK_VERIFY (4u)
+#define LAN9645_CORE_PORT_STEP_MODE_MAC_SET     (5u)
+#define LAN9645_CORE_PORT_STEP_MODE_MAC_VERIFY  (6u)
+#define LAN9645_CORE_PORT_STEP_MODE_ENA_SET     (7u)
+#define LAN9645_CORE_PORT_STEP_MODE_ENA_VERIFY  (8u)
 
 /**
  * @brief Validates that the LAN9645 core context is ready.
@@ -29,6 +43,117 @@ static app_status_t lan9645_core_check_ctx(const lan9645_core_t *ctx)
   if ((ctx->initialized == 0u) || (ctx->reg == NULL)) {
     return APP_ESTATE;
   }
+  return APP_OK;
+}
+
+/**
+ * @brief Reports one port-configuration failure into diagnostics and routed serial logs.
+ *
+ * @param[in] port Port index associated with the failure.
+ * @param[in] reg_addr Register-relative address tag.
+ * @param[in] st Failure status code.
+ * @param[in] step Internal step tag for deterministic troubleshooting.
+ */
+static void lan9645_core_report_port_cfg_fail(uint8_t port, uint32_t reg_addr, app_status_t st, uint32_t step)
+{
+  diag_event_t evt = {0};
+
+  evt.id = DIAG_EVT_LAN_PORT_CFG_FAIL;
+  evt.severity = DIAG_SEV_ERR;
+  evt.dev = (uint32_t)port;
+  evt.reg = reg_addr;
+  evt.arg0 = (uint32_t)(int32_t)st;
+  evt.arg1 = step;
+
+  (void)diag_core_report(&evt);
+  (void)diag_router_write_event(&evt);
+}
+
+/**
+ * @brief Converts a requested 10/100 speed value into the DEV clock speed code.
+ *
+ * @param[in] speed_mbps Requested speed in Mbit/s.
+ * @param[out] speed_code Destination speed code for `DEV_CLOCK_CFG.LINK_SPEED`.
+ *
+ * @return @ref APP_OK on success.
+ */
+static app_status_t lan9645_core_speed_to_code(uint16_t speed_mbps, uint32_t *speed_code)
+{
+  if (speed_code == NULL) {
+    return APP_EINVAL;
+  }
+
+  if (speed_mbps == LAN9645_CORE_PORT_SPEED_10_MBPS) {
+    *speed_code = LAN9645_CORE_SPEED_CODE_10;
+    return APP_OK;
+  }
+  if (speed_mbps == LAN9645_CORE_PORT_SPEED_100_MBPS) {
+    *speed_code = LAN9645_CORE_SPEED_CODE_100;
+    return APP_OK;
+  }
+
+  return APP_EINVAL;
+}
+
+/**
+ * @brief Decodes a DEV clock speed code into a user-facing Mbit/s value.
+ *
+ * @param[in] speed_code Encoded `DEV_CLOCK_CFG.LINK_SPEED` value.
+ *
+ * @return Speed in Mbit/s, or `0` when the code is not part of the 10/100 profile.
+ */
+static uint16_t lan9645_core_speed_from_code(uint32_t speed_code)
+{
+  if (speed_code == LAN9645_CORE_SPEED_CODE_10) {
+    return LAN9645_CORE_PORT_SPEED_10_MBPS;
+  }
+  if (speed_code == LAN9645_CORE_SPEED_CODE_100) {
+    return LAN9645_CORE_PORT_SPEED_100_MBPS;
+  }
+  return 0u;
+}
+
+/**
+ * @brief Verifies one descriptor field with readback and reports mismatch through diagnostics.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] desc Register descriptor to read.
+ * @param[in] group_instance Group instance index.
+ * @param[in] reg_instance Register instance index.
+ * @param[in] mask Field mask to verify.
+ * @param[in] expected Expected masked value.
+ * @param[in] port Port index tied to the verification.
+ * @param[in] step Failure step tag used for diagnostics.
+ *
+ * @return @ref APP_OK on success.
+ */
+static app_status_t lan9645_core_verify_masked_desc(
+  lan9645_core_t *ctx,
+  const lan9645_reg_desc_t *desc,
+  uint32_t group_instance,
+  uint32_t reg_instance,
+  uint32_t mask,
+  uint32_t expected,
+  uint8_t port,
+  uint32_t step
+)
+{
+  uint32_t value = 0u;
+  uint32_t reg_tag = 0u;
+  app_status_t st = APP_OK;
+
+  reg_tag = lan9645_reg_desc_rel_addr(desc, group_instance, reg_instance);
+  st = lan9645_reg_read32_desc(ctx->reg, desc, 0u, group_instance, reg_instance, &value);
+  if (st != APP_OK) {
+    lan9645_core_report_port_cfg_fail(port, reg_tag, st, step);
+    return st;
+  }
+
+  if ((value & mask) != (expected & mask)) {
+    lan9645_core_report_port_cfg_fail(port, reg_tag, APP_EIO, step);
+    return APP_EIO;
+  }
+
   return APP_OK;
 }
 
@@ -357,7 +482,260 @@ app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_
 }
 
 /**
- * @brief Enables or disables one switch port.
+ * @brief Sets the administrative forwarding state for one switch port.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[in] up Set to 1 for administrative up.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_set_port_admin(lan9645_core_t *ctx, uint8_t port, uint8_t up)
+{
+  uint32_t value = (up != 0u) ? LAN9645_QSYS_SW_PORT_MODE_PORT_ENA : 0u;
+  uint32_t reg_tag = lan9645_reg_desc_rel_addr(&LAN9645_REG_QSYS_SW_PORT_MODE, 0u, (uint32_t)port);
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (port > LAN9645_CORE_MAX_DEV_PORT) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_reg_rmw32_desc(
+    ctx->reg,
+    &LAN9645_REG_QSYS_SW_PORT_MODE,
+    0u,
+    0u,
+    (uint32_t)port,
+    LAN9645_QSYS_SW_PORT_MODE_PORT_ENA,
+    value
+  );
+  if (st != APP_OK) {
+    lan9645_core_report_port_cfg_fail(port, reg_tag, st, LAN9645_CORE_PORT_STEP_ADMIN_SET);
+    return st;
+  }
+
+  return lan9645_core_verify_masked_desc(
+    ctx,
+    &LAN9645_REG_QSYS_SW_PORT_MODE,
+    0u,
+    (uint32_t)port,
+    LAN9645_QSYS_SW_PORT_MODE_PORT_ENA,
+    value,
+    port,
+    LAN9645_CORE_PORT_STEP_ADMIN_VERIFY
+  );
+}
+
+/**
+ * @brief Applies 10/100 MAC mode configuration with readback verification.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[in] speed_mbps Requested speed in Mbit/s.
+ * @param[in] full_duplex Set to 1 for full duplex.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_set_port_mode(
+  lan9645_core_t *ctx,
+  uint8_t port,
+  uint16_t speed_mbps,
+  uint8_t full_duplex
+)
+{
+  uint32_t speed_code = 0u;
+  uint32_t clock_mask = 0u;
+  uint32_t clock_value = 0u;
+  uint32_t mode_mask = 0u;
+  uint32_t mode_value = 0u;
+  uint32_t ena_mask = 0u;
+  uint32_t ena_value = 0u;
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (port > LAN9645_CORE_MAX_DEV_PORT) {
+    return APP_EINVAL;
+  }
+  if ((full_duplex != 0u) && (full_duplex != 1u)) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_core_speed_to_code(speed_mbps, &speed_code);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  clock_mask =
+    LAN9645_DEV_CLOCK_CFG_MAC_TX_RST |
+    LAN9645_DEV_CLOCK_CFG_MAC_RX_RST |
+    LAN9645_DEV_CLOCK_CFG_PCS_TX_RST |
+    LAN9645_DEV_CLOCK_CFG_PCS_RX_RST |
+    LAN9645_DEV_CLOCK_CFG_PORT_RST |
+    LAN9645_DEV_CLOCK_CFG_PHY_RST |
+    LAN9645_DEV_CLOCK_CFG_LINK_SPEED;
+  clock_value = LAN9645_DEV_CLOCK_CFG_LINK_SPEED_SET(speed_code);
+
+  st = lan9645_reg_rmw32_desc(
+    ctx->reg,
+    &LAN9645_REG_DEV_CLOCK_CFG,
+    0u,
+    (uint32_t)port,
+    0u,
+    clock_mask,
+    clock_value
+  );
+  if (st != APP_OK) {
+    lan9645_core_report_port_cfg_fail(
+      port,
+      lan9645_reg_desc_rel_addr(&LAN9645_REG_DEV_CLOCK_CFG, (uint32_t)port, 0u),
+      st,
+      LAN9645_CORE_PORT_STEP_MODE_CLOCK_SET
+    );
+    return st;
+  }
+
+  st = lan9645_core_verify_masked_desc(
+    ctx,
+    &LAN9645_REG_DEV_CLOCK_CFG,
+    (uint32_t)port,
+    0u,
+    clock_mask,
+    clock_value,
+    port,
+    LAN9645_CORE_PORT_STEP_MODE_CLOCK_VERIFY
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  mode_mask = LAN9645_DEV_MAC_MODE_CFG_GIGA_MODE_ENA | LAN9645_DEV_MAC_MODE_CFG_FDX_ENA;
+  mode_value = (full_duplex != 0u) ? LAN9645_DEV_MAC_MODE_CFG_FDX_ENA : 0u;
+
+  st = lan9645_reg_rmw32_desc(
+    ctx->reg,
+    &LAN9645_REG_DEV_MAC_MODE_CFG,
+    0u,
+    (uint32_t)port,
+    0u,
+    mode_mask,
+    mode_value
+  );
+  if (st != APP_OK) {
+    lan9645_core_report_port_cfg_fail(
+      port,
+      lan9645_reg_desc_rel_addr(&LAN9645_REG_DEV_MAC_MODE_CFG, (uint32_t)port, 0u),
+      st,
+      LAN9645_CORE_PORT_STEP_MODE_MAC_SET
+    );
+    return st;
+  }
+
+  st = lan9645_core_verify_masked_desc(
+    ctx,
+    &LAN9645_REG_DEV_MAC_MODE_CFG,
+    (uint32_t)port,
+    0u,
+    mode_mask,
+    mode_value,
+    port,
+    LAN9645_CORE_PORT_STEP_MODE_MAC_VERIFY
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  ena_mask = LAN9645_DEV_MAC_ENA_CFG_TX_ENA | LAN9645_DEV_MAC_ENA_CFG_RX_ENA;
+  ena_value = ena_mask;
+  st = lan9645_reg_rmw32_desc(
+    ctx->reg,
+    &LAN9645_REG_DEV_MAC_ENA_CFG,
+    0u,
+    (uint32_t)port,
+    0u,
+    ena_mask,
+    ena_value
+  );
+  if (st != APP_OK) {
+    lan9645_core_report_port_cfg_fail(
+      port,
+      lan9645_reg_desc_rel_addr(&LAN9645_REG_DEV_MAC_ENA_CFG, (uint32_t)port, 0u),
+      st,
+      LAN9645_CORE_PORT_STEP_MODE_ENA_SET
+    );
+    return st;
+  }
+
+  return lan9645_core_verify_masked_desc(
+    ctx,
+    &LAN9645_REG_DEV_MAC_ENA_CFG,
+    (uint32_t)port,
+    0u,
+    ena_mask,
+    ena_value,
+    port,
+    LAN9645_CORE_PORT_STEP_MODE_ENA_VERIFY
+  );
+}
+
+/**
+ * @brief Reads one switch-port administrative and MAC operating snapshot.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] port Switch port index.
+ * @param[out] out Destination configuration snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_get_port_cfg(lan9645_core_t *ctx, uint8_t port, lan9645_core_port_cfg_t *out)
+{
+  uint32_t qsys = 0u;
+  uint32_t clock_cfg = 0u;
+  uint32_t mac_mode = 0u;
+  uint32_t mac_ena = 0u;
+  uint32_t speed_code = 0u;
+  app_status_t st = lan9645_core_check_ctx(ctx);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (out == NULL) {
+    return APP_EINVAL;
+  }
+  if (port > LAN9645_CORE_MAX_DEV_PORT) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_reg_read32_desc(ctx->reg, &LAN9645_REG_QSYS_SW_PORT_MODE, 0u, 0u, (uint32_t)port, &qsys);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_reg_read32_desc(ctx->reg, &LAN9645_REG_DEV_CLOCK_CFG, 0u, (uint32_t)port, 0u, &clock_cfg);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_reg_read32_desc(ctx->reg, &LAN9645_REG_DEV_MAC_MODE_CFG, 0u, (uint32_t)port, 0u, &mac_mode);
+  if (st != APP_OK) {
+    return st;
+  }
+  st = lan9645_reg_read32_desc(ctx->reg, &LAN9645_REG_DEV_MAC_ENA_CFG, 0u, (uint32_t)port, 0u, &mac_ena);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  speed_code = LAN9645_FIELD_GET(LAN9645_DEV_CLOCK_CFG_LINK_SPEED, clock_cfg);
+  memset(out, 0, sizeof(*out));
+  out->admin_up = ((qsys & LAN9645_QSYS_SW_PORT_MODE_PORT_ENA) != 0u) ? 1u : 0u;
+  out->speed_mbps = lan9645_core_speed_from_code(speed_code);
+  out->full_duplex = ((mac_mode & LAN9645_DEV_MAC_MODE_CFG_FDX_ENA) != 0u) ? 1u : 0u;
+  out->mac_rx_ena = ((mac_ena & LAN9645_DEV_MAC_ENA_CFG_RX_ENA) != 0u) ? 1u : 0u;
+  out->mac_tx_ena = ((mac_ena & LAN9645_DEV_MAC_ENA_CFG_TX_ENA) != 0u) ? 1u : 0u;
+  return APP_OK;
+}
+
+/**
+ * @brief Backward-compatible wrapper for setting QSYS port enable.
  *
  * @param[in,out] ctx Core context.
  * @param[in] port Switch port index.
@@ -367,24 +745,7 @@ app_status_t lan9645_core_read_feat_disable(lan9645_core_t *ctx, uint32_t *feat_
  */
 app_status_t lan9645_core_set_port_enable(lan9645_core_t *ctx, uint8_t port, uint8_t enable)
 {
-  uint32_t value = (enable != 0u) ? LAN9645_QSYS_SW_PORT_MODE_PORT_ENA : 0u;
-  app_status_t st = lan9645_core_check_ctx(ctx);
-  if (st != APP_OK) {
-    return st;
-  }
-  if (port > 9u) {
-    return APP_EINVAL;
-  }
-
-  return lan9645_reg_rmw32_desc(
-    ctx->reg,
-    &LAN9645_REG_QSYS_SW_PORT_MODE,
-    0u,
-    0u,
-    (uint32_t)port,
-    LAN9645_QSYS_SW_PORT_MODE_PORT_ENA,
-    value
-  );
+  return lan9645_core_set_port_admin(ctx, port, enable);
 }
 
 /**

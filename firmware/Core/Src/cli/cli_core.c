@@ -142,6 +142,7 @@ static const char *cli_diag_evt_to_str(diag_event_id_t id)
     case DIAG_EVT_BOOT: return "BOOT";
     case DIAG_EVT_LAN_SPI_IFSTAT: return "LAN_SPI_IFSTAT";
     case DIAG_EVT_LAN_SPI_TIMEOUT: return "LAN_SPI_TIMEOUT";
+    case DIAG_EVT_LAN_PORT_CFG_FAIL: return "LAN_PORT_CFG_FAIL";
     case DIAG_EVT_LAN_STRAP_EXPECTATION: return "LAN_STRAP_EXPECTATION";
     case DIAG_EVT_LAN_RMII_LINK_TIMEOUT: return "LAN_RMII_LINK_TIMEOUT";
     case DIAG_EVT_LAN_SERDES0_LINK_TIMEOUT: return "LAN_SERDES0_LINK_TIMEOUT";
@@ -188,6 +189,27 @@ static const char *cli_eth_duplex_to_str(uint32_t duplex)
     return "half";
   }
   return "unknown";
+}
+
+/** @brief Converts configured LAN port speed into readable text. */
+static const char *cli_port_speed_to_str(uint16_t speed_mbps)
+{
+  if (speed_mbps == LAN9645_CORE_PORT_SPEED_10_MBPS) {
+    return "10";
+  }
+  if (speed_mbps == LAN9645_CORE_PORT_SPEED_100_MBPS) {
+    return "100";
+  }
+  return "unknown";
+}
+
+/** @brief Returns 1 when the port belongs to the managed baseline scope (0, 1, 8). */
+static uint8_t cli_is_managed_port(uint32_t port)
+{
+  if ((port == CLI_LAN_CHECK_PORT0) || (port == CLI_LAN_CHECK_PORT1) || (port == CLI_LAN_CHECK_CPU_PORT)) {
+    return 1u;
+  }
+  return 0u;
 }
 
 /** @brief Returns 1 when an IPv4 string is the all-zero address. */
@@ -245,8 +267,10 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  lan check\r\n");
   (void)cli_writef("  lan profile apply\r\n");
   (void)cli_writef("  lan preflight\r\n");
-  (void)cli_writef("  port show\r\n");
+  (void)cli_writef("  port show [0|1|8]\r\n");
   (void)cli_writef("  port select <0|1>\r\n");
+  (void)cli_writef("  port admin <0|1|8> <up|down>\r\n");
+  (void)cli_writef("  port mode <0|1|8> <10|100> <half|full>\r\n");
   (void)cli_writef("  eth show\r\n");
   (void)cli_writef("  net show\r\n");
   (void)cli_writef("  net check\r\n");
@@ -555,6 +579,90 @@ static app_status_t cli_cmd_phy_show(uint8_t port)
     (unsigned long)anlpar
   );
   return APP_OK;
+}
+
+/** @brief Prints administrative and MAC mode state for one managed switch port. */
+static app_status_t cli_cmd_port_show_cfg(uint8_t port)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  lan9645_core_port_cfg_t cfg = {0};
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+  if (cli_is_managed_port((uint32_t)port) == 0u) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_core_get_port_cfg(core, port, &cfg);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "port cfg port=%u admin=%s speed=%s duplex=%s mac_rx=%u mac_tx=%u\r\n",
+    (unsigned int)port,
+    (cfg.admin_up != 0u) ? "up" : "down",
+    cli_port_speed_to_str(cfg.speed_mbps),
+    (cfg.full_duplex != 0u) ? "full" : "half",
+    (unsigned int)cfg.mac_rx_ena,
+    (unsigned int)cfg.mac_tx_ena
+  );
+  return APP_OK;
+}
+
+/** @brief Applies one administrative up/down command on a managed switch port. */
+static app_status_t cli_cmd_port_admin(uint8_t port, uint8_t up)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+  if (cli_is_managed_port((uint32_t)port) == 0u) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_core_set_port_admin(core, port, up);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "port admin port=%u state=%s\r\n",
+    (unsigned int)port,
+    (up != 0u) ? "up" : "down"
+  );
+  return cli_cmd_port_show_cfg(port);
+}
+
+/** @brief Applies one 10/100 MAC mode command on a managed switch port. */
+static app_status_t cli_cmd_port_mode(uint8_t port, uint16_t speed_mbps, uint8_t full_duplex)
+{
+  lan9645_core_t *core = lan9645_runtime_get_core();
+  app_status_t st = APP_OK;
+
+  if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
+    return APP_ESTATE;
+  }
+  if (cli_is_managed_port((uint32_t)port) == 0u) {
+    return APP_EINVAL;
+  }
+
+  st = lan9645_core_set_port_mode(core, port, speed_mbps, full_duplex);
+  if (st != APP_OK) {
+    return st;
+  }
+
+  (void)cli_writef(
+    "port mode port=%u speed=%s duplex=%s\r\n",
+    (unsigned int)port,
+    cli_port_speed_to_str(speed_mbps),
+    (full_duplex != 0u) ? "full" : "half"
+  );
+  return cli_cmd_port_show_cfg(port);
 }
 
 /** @brief Prints a combined application, LAN, IRQ, ETH, and diagnostics snapshot. */
@@ -1266,8 +1374,19 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
       return APP_EINVAL;
     }
     if (cli_eq(tokens[1], "show") != 0u) {
+      uint8_t port = s_cli.active_port;
+      uint32_t p = 0u;
+      if (ntok >= 3u) {
+        if (cli_parse_u32(tokens[2], &p) != APP_OK) {
+          return APP_EINVAL;
+        }
+        if (cli_is_managed_port(p) == 0u) {
+          return APP_EINVAL;
+        }
+        port = (uint8_t)p;
+      }
       (void)cli_writef("active port=%u\r\n", (unsigned int)s_cli.active_port);
-      return APP_OK;
+      return cli_cmd_port_show_cfg(port);
     }
     if (cli_eq(tokens[1], "select") != 0u) {
       uint32_t p = 0u;
@@ -1286,6 +1405,55 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
       }
       (void)cli_writef("active port set=%u\r\n", (unsigned int)s_cli.active_port);
       return APP_OK;
+    }
+    if (cli_eq(tokens[1], "admin") != 0u) {
+      uint32_t p = 0u;
+      uint8_t up = 0u;
+      if (ntok < 4u) {
+        return APP_EINVAL;
+      }
+      if (cli_parse_u32(tokens[2], &p) != APP_OK) {
+        return APP_EINVAL;
+      }
+      if (cli_is_managed_port(p) == 0u) {
+        return APP_EINVAL;
+      }
+      if (cli_eq(tokens[3], "up") != 0u) {
+        up = 1u;
+      } else if (cli_eq(tokens[3], "down") != 0u) {
+        up = 0u;
+      } else {
+        return APP_EINVAL;
+      }
+      return cli_cmd_port_admin((uint8_t)p, up);
+    }
+    if (cli_eq(tokens[1], "mode") != 0u) {
+      uint32_t p = 0u;
+      uint32_t speed = 0u;
+      uint8_t full_duplex = 0u;
+      if (ntok < 5u) {
+        return APP_EINVAL;
+      }
+      if (cli_parse_u32(tokens[2], &p) != APP_OK) {
+        return APP_EINVAL;
+      }
+      if (cli_is_managed_port(p) == 0u) {
+        return APP_EINVAL;
+      }
+      if (cli_parse_u32(tokens[3], &speed) != APP_OK) {
+        return APP_EINVAL;
+      }
+      if ((speed != LAN9645_CORE_PORT_SPEED_10_MBPS) && (speed != LAN9645_CORE_PORT_SPEED_100_MBPS)) {
+        return APP_EINVAL;
+      }
+      if (cli_eq(tokens[4], "full") != 0u) {
+        full_duplex = 1u;
+      } else if (cli_eq(tokens[4], "half") != 0u) {
+        full_duplex = 0u;
+      } else {
+        return APP_EINVAL;
+      }
+      return cli_cmd_port_mode((uint8_t)p, (uint16_t)speed, full_duplex);
     }
     return APP_EINVAL;
   }
