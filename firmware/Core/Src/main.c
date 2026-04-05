@@ -47,7 +47,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LAN9645_SPI_CLOCK_HZ (35000000u)
+#define LAN9645_SPI_CLOCK_FALLBACK_HZ (24000000u)
 #define LAN9645_IRQ_STUCK_TIMEOUT_MS (200u)
 #define LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS (250u)
 #define LAN9645_ANA_EVT_LLCT_PORT_ERR      LAN9645_BIT(30u)
@@ -141,6 +141,42 @@ static diag_severity_t lan9645_irq_cause_severity(
   return DIAG_SEV_INFO;
 }
 
+static uint32_t lan9645_spi_prescaler_to_div(uint32_t prescaler)
+{
+  switch (prescaler)
+  {
+    case SPI_BAUDRATEPRESCALER_2: return 2u;
+    case SPI_BAUDRATEPRESCALER_4: return 4u;
+    case SPI_BAUDRATEPRESCALER_8: return 8u;
+    case SPI_BAUDRATEPRESCALER_16: return 16u;
+    case SPI_BAUDRATEPRESCALER_32: return 32u;
+    case SPI_BAUDRATEPRESCALER_64: return 64u;
+    case SPI_BAUDRATEPRESCALER_128: return 128u;
+    case SPI_BAUDRATEPRESCALER_256: return 256u;
+    default: return 0u;
+  }
+}
+
+static uint32_t lan9645_spi_effective_clock_hz(const SPI_HandleTypeDef *hspi)
+{
+  uint32_t spi_ker_hz = 0u;
+  uint32_t div = 0u;
+
+  if (hspi == NULL)
+  {
+    return 0u;
+  }
+
+  spi_ker_hz = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI1);
+  div = lan9645_spi_prescaler_to_div(hspi->Init.BaudRatePrescaler);
+  if ((spi_ker_hz == 0u) || (div == 0u))
+  {
+    return 0u;
+  }
+
+  return (spi_ker_hz / div);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -191,6 +227,12 @@ int main(void)
   MX_LWIP_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+  uint32_t lan_spi_clock_hz = lan9645_spi_effective_clock_hz(&hspi1);
+  if (lan_spi_clock_hz == 0u)
+  {
+    lan_spi_clock_hz = LAN9645_SPI_CLOCK_FALLBACK_HZ;
+  }
+
   if (time_service_init() != APP_OK)
   {
     Error_Handler();
@@ -253,7 +295,7 @@ int main(void)
   {
     Error_Handler();
   }
-  if (lan9645_core_spi_setup(&g_lan_core, LAN9645_SPI_CLOCK_HZ) != APP_OK)
+  if (lan9645_core_spi_setup(&g_lan_core, lan_spi_clock_hz) != APP_OK)
   {
     Error_Handler();
   }
@@ -829,6 +871,21 @@ void MPU_Config(void)
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* Keep ETH DMA descriptors and Rx buffers in a non-cacheable RAM_D2 region. */
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x30000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL1;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 

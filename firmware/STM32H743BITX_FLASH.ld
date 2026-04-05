@@ -155,6 +155,32 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM_D1
 
+  /* Ethernet DMA descriptors and Rx pool are placed in RAM_D2.
+     Keep these sections non-initialized and 32-byte aligned. */
+  .RxDescripSection (NOLOAD) :
+  {
+    . = ALIGN(32);
+    *(.RxDescripSection)
+    *(.RxDescripSection*)
+    . = ALIGN(32);
+  } >RAM_D2
+
+  .TxDescripSection (NOLOAD) :
+  {
+    . = ALIGN(32);
+    *(.TxDescripSection)
+    *(.TxDescripSection*)
+    . = ALIGN(32);
+  } >RAM_D2
+
+  .Rx_PoolSection (NOLOAD) :
+  {
+    . = ALIGN(32);
+    *(.Rx_PoolSection)
+    *(.Rx_PoolSection*)
+    . = ALIGN(32);
+  } >RAM_D2
+
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
   {
@@ -176,5 +202,4 @@ SECTIONS
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
-
 
