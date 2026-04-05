@@ -506,6 +506,29 @@ F5 software status:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.6) F6 Progress Snapshot (April 5, 2026)
+
+F6 objective:
+- freeze the CLI contract for F1..F5 with strict syntax and deterministic response envelopes for automation.
+
+Implemented now in firmware:
+- `Core/Src/cli/cli_core.c`
+  - added locked machine-readable result envelope emitted for every executed command:
+    - `cli result=<ok|err> st=<int> code=<symbol> seq=<u32> schema=<u32>`
+  - added stable status-code symbol mapping:
+    - `APP_OK`, `APP_EINVAL`, `APP_EIO`, `APP_ETIMEOUT`, `APP_ENOTSUP`, `APP_ESTATE`
+  - added contract discovery command:
+    - `cli contract`
+  - updated `help` output to include:
+    - `cli contract`
+  - replaced legacy free-form error trailer with the fixed contract line so command failures now always map to explicit numeric + symbolic codes.
+
+F6 software status:
+- **Software complete (baseline scope)**
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)

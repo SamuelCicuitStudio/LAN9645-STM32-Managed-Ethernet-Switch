@@ -26,6 +26,7 @@
 
 #define CLI_MAX_LINE_LEN      (160u)
 #define CLI_MAX_TOKENS        (8u)
+#define CLI_RESULT_SCHEMA_VERSION (1u)
 #define CLI_LAN_CHECK_PORT0    (0u)
 #define CLI_LAN_CHECK_PORT1    (1u)
 #define CLI_LAN_CHECK_CPU_PORT (8u)
@@ -81,6 +82,33 @@ static app_status_t cli_writef(const char *fmt, ...)
   }
 
   return diag_router_write_text(line);
+}
+
+/** @brief Converts an application status code into a stable symbolic token. */
+static const char *cli_status_to_code(app_status_t st)
+{
+  switch (st) {
+    case APP_OK: return "APP_OK";
+    case APP_EINVAL: return "APP_EINVAL";
+    case APP_EIO: return "APP_EIO";
+    case APP_ETIMEOUT: return "APP_ETIMEOUT";
+    case APP_ENOTSUP: return "APP_ENOTSUP";
+    case APP_ESTATE: return "APP_ESTATE";
+    default: return "APP_EUNKNOWN";
+  }
+}
+
+/** @brief Emits one deterministic machine-readable command result envelope. */
+static void cli_emit_result(app_status_t st)
+{
+  (void)cli_writef(
+    "cli result=%s st=%ld code=%s seq=%lu schema=%u\r\n",
+    (st == APP_OK) ? "ok" : "err",
+    (long)st,
+    cli_status_to_code(st),
+    (unsigned long)s_cli.command_count,
+    (unsigned int)CLI_RESULT_SCHEMA_VERSION
+  );
 }
 
 /** @brief Parses a CLI token into a 32-bit unsigned value. */
@@ -273,6 +301,7 @@ static app_status_t cli_cmd_help(void)
 {
   (void)cli_writef("cli commands:\r\n");
   (void)cli_writef("  help\r\n");
+  (void)cli_writef("  cli contract\r\n");
   (void)cli_writef("  state show\r\n");
   (void)cli_writef("  status all\r\n");
   (void)cli_writef("  status errors\r\n");
@@ -305,6 +334,16 @@ static app_status_t cli_cmd_help(void)
   (void)cli_writef("  reg read <0xADDR>\r\n");
   (void)cli_writef("  reg write <0xADDR> <0xVALUE>\r\n");
   (void)cli_writef("  sanity spi <0xADDR> [count]\r\n");
+  return APP_OK;
+}
+
+/** @brief Prints the locked CLI result-envelope schema used for automation parsing. */
+static app_status_t cli_cmd_contract_show(void)
+{
+  (void)cli_writef(
+    "cli contract schema=%u format=\"cli result=<ok|err> st=<int> code=<symbol> seq=<u32> schema=<u32>\"\r\n",
+    (unsigned int)CLI_RESULT_SCHEMA_VERSION
+  );
   return APP_OK;
 }
 
@@ -1427,6 +1466,13 @@ static app_status_t cli_exec_tokens(char *tokens[], uint32_t ntok)
     return cli_cmd_help();
   }
 
+  if (cli_eq(tokens[0], "cli") != 0u) {
+    if ((ntok < 2u) || (cli_eq(tokens[1], "contract") == 0u)) {
+      return APP_EINVAL;
+    }
+    return cli_cmd_contract_show();
+  }
+
   if (cli_eq(tokens[0], "status") != 0u) {
     if (ntok < 2u) {
       return APP_EINVAL;
@@ -1826,12 +1872,10 @@ app_status_t cli_core_exec_line(const char *line)
 
   s_cli.command_count++;
   st = cli_exec_tokens(tokens, ntok);
-  if (st == APP_OK) {
-    return APP_OK;
+  if (st != APP_OK) {
+    s_cli.command_error_count++;
   }
-
-  s_cli.command_error_count++;
-  (void)cli_writef("cmd error=%ld\r\n", (long)st);
+  cli_emit_result(st);
   return st;
 }
 
