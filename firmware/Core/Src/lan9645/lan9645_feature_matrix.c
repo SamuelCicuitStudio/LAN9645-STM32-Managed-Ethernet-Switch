@@ -18,6 +18,7 @@
 #define LAN9645_FEATURE_DEFAULT_VID        (1u)
 #define LAN9645_FEATURE_DEFAULT_MEMBER_MASK (0x103u) /* ports 0,1,8 */
 #define LAN9645_FEATURE_DEFAULT_UNTAG_MASK  (0x003u) /* untag copper 0/1 */
+#define LAN9645_FEATURE_MANUAL_INJ_PORT      (9u)
 
 static const char *s_feature_names[LAN9645_FEATURE_COUNT] = {
   "afi",
@@ -179,6 +180,82 @@ static app_status_t lan9645_feature_apply_stats(lan9645_feature_matrix_t *matrix
 }
 
 /**
+ * @brief Enables AFI baseline domain used by Linux reference profile.
+ */
+static app_status_t lan9645_feature_apply_afi(lan9645_feature_matrix_t *matrix)
+{
+  uint32_t rd = 0u;
+  app_status_t st = lan9645_reg_rmw32_desc(
+    matrix->core->reg,
+    &LAN9645_REG_AFI_MISC_CTRL,
+    0u,
+    0u,
+    0u,
+    LAN9645_AFI_MISC_CTRL_AFI_ENA,
+    LAN9645_AFI_MISC_CTRL_AFI_ENA
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    matrix->core->reg,
+    &LAN9645_REG_AFI_MISC_CTRL,
+    0u,
+    0u,
+    0u,
+    &rd
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+  if ((rd & LAN9645_AFI_MISC_CTRL_AFI_ENA) == 0u) {
+    return APP_EIO;
+  }
+
+  return APP_OK;
+}
+
+/**
+ * @brief Configures manual-injection header mode for the dedicated CPU injection port.
+ */
+static app_status_t lan9645_feature_apply_manual_inj(lan9645_feature_matrix_t *matrix)
+{
+  const uint32_t mask = LAN9645_SYS_PORT_MODE_INCL_INJ_HDR;
+  const uint32_t value = LAN9645_SYS_PORT_MODE_INCL_INJ_HDR_SET(1u);
+  uint32_t rd = 0u;
+  app_status_t st = lan9645_reg_rmw32_desc(
+    matrix->core->reg,
+    &LAN9645_REG_SYS_PORT_MODE,
+    0u,
+    0u,
+    LAN9645_FEATURE_MANUAL_INJ_PORT,
+    mask,
+    value
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  st = lan9645_reg_read32_desc(
+    matrix->core->reg,
+    &LAN9645_REG_SYS_PORT_MODE,
+    0u,
+    0u,
+    LAN9645_FEATURE_MANUAL_INJ_PORT,
+    &rd
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+  if ((rd & mask) != value) {
+    return APP_EIO;
+  }
+
+  return APP_OK;
+}
+
+/**
  * @brief Initializes matrix state and marks baseline register-backed features.
  */
 app_status_t lan9645_feature_matrix_init(lan9645_feature_matrix_t *matrix, lan9645_core_t *core)
@@ -196,11 +273,15 @@ app_status_t lan9645_feature_matrix_init(lan9645_feature_matrix_t *matrix, lan96
   }
 
   matrix->features[LAN9645_FEATURE_MAC].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_AFI].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_MANUAL_INJ].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_NPI].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_PHYLINK].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_VLAN].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_STATS].register_backed = 1u;
 
+  matrix->features[LAN9645_FEATURE_AFI].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_MANUAL_INJ].enabled = 1u;
   matrix->features[LAN9645_FEATURE_MAC].enabled = 1u;
   matrix->features[LAN9645_FEATURE_NPI].enabled = 1u;
   matrix->features[LAN9645_FEATURE_PHYLINK].enabled = 1u;
@@ -317,8 +398,14 @@ app_status_t lan9645_feature_matrix_apply(
   }
 
   switch (feature) {
+    case LAN9645_FEATURE_AFI:
+      st = lan9645_feature_apply_afi(matrix);
+      break;
     case LAN9645_FEATURE_MAC:
       st = lan9645_feature_apply_mac(matrix);
+      break;
+    case LAN9645_FEATURE_MANUAL_INJ:
+      st = lan9645_feature_apply_manual_inj(matrix);
       break;
     case LAN9645_FEATURE_NPI:
       st = lan9645_feature_apply_npi(matrix);

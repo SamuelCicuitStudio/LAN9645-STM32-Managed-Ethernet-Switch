@@ -608,6 +608,8 @@ What is now locked in code:
 - feature-apply failures emit `DIAG_EVT_LAN_FEAT_CFG_FAIL`.
 
 Register-backed applies currently implemented in matrix:
+- `afi`
+- `manual_inj`
 - `mac`
 - `npi`
 - `phylink`

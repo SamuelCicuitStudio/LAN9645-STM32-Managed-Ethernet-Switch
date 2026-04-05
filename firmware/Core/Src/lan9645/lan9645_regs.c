@@ -23,6 +23,9 @@ const lan9645_reg_desc_t LAN9645_REG_ANA_PGID_CFG =
 const lan9645_reg_desc_t LAN9645_REG_ANA_AGGR_CFG =
   LAN9645_REG_DESC(LAN9645_TARGET_ANA, 0u, 1u, 29248u, 0u, 1u, 552u, 0u, 0u, 1u, 4u);
 
+const lan9645_reg_desc_t LAN9645_REG_AFI_MISC_CTRL =
+  LAN9645_REG_DESC(LAN9645_TARGET_AFI, 0u, 1u, 6360u, 0u, 1u, 32u, 0u, 0u, 1u, 4u);
+
 const lan9645_reg_desc_t LAN9645_REG_CHIP_TOP_CUPHY_PORT_CFG =
   LAN9645_REG_DESC(LAN9645_TARGET_CHIP_TOP, 0u, 1u, 12u, 0u, 1u, 64u, 20u, 0u, 5u, 4u);
 
