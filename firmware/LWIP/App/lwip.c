@@ -31,6 +31,8 @@
 #include <string.h>
 
 /* USER CODE BEGIN 0 */
+static uint8_t s_lwip_initialized = 0u;
+
 /** @brief Formats an IPv4 address into a dotted-quad string for CLI output. */
 static void lwip_format_ipv4(const ip4_addr_t *addr, char *dst, size_t dst_len)
 {
@@ -58,6 +60,9 @@ app_status_t lwip_get_runtime_state(lwip_runtime_state_t *out)
 {
   if (out == NULL) {
     return APP_EINVAL;
+  }
+  if (s_lwip_initialized == 0u) {
+    return APP_ESTATE;
   }
 
   memset(out, 0, sizeof(*out));
@@ -109,7 +114,7 @@ void MX_LWIP_Init(void)
   GATEWAY_ADDRESS[0] = 192;
   GATEWAY_ADDRESS[1] = 168;
   GATEWAY_ADDRESS[2] = 10;
-  GATEWAY_ADDRESS[3] = 50;
+  GATEWAY_ADDRESS[3] = 1;
 
 /* USER CODE BEGIN IP_ADDRESSES */
 /* USER CODE END IP_ADDRESSES */
@@ -133,6 +138,7 @@ void MX_LWIP_Init(void)
 
   /* Set the link callback function, this function is called on change of link status*/
   netif_set_link_callback(&gnetif, ethernet_link_status_updated);
+  s_lwip_initialized = 1u;
 
 /* USER CODE BEGIN 3 */
 
@@ -180,6 +186,9 @@ static void Ethernet_Link_Periodic_Handle(struct netif *netif)
 void MX_LWIP_Process(void)
 {
 /* USER CODE BEGIN 4_1 */
+  if (s_lwip_initialized == 0u) {
+    return;
+  }
 /* USER CODE END 4_1 */
   ethernetif_input(&gnetif);
 

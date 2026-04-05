@@ -10,15 +10,38 @@
 
 #include "diag/diag_core.h"
 #include "diag/diag_router.h"
-#include "lan9645/lan9645_reg.h"
-#include "lan9645/lan9645_regs.h"
+#include "lan9645/lan9645_afi.h"
+#include "lan9645/lan9645_bum.h"
+#include "lan9645/lan9645_cbs.h"
+#include "lan9645/lan9645_cut_thru.h"
+#include "lan9645/lan9645_dcb.h"
+#include "lan9645/lan9645_eee.h"
+#include "lan9645/lan9645_fp.h"
+#include "lan9645/lan9645_hsr_prp.h"
+#include "lan9645/lan9645_lag.h"
+#include "lan9645/lan9645_mac.h"
+#include "lan9645/lan9645_manual_inj.h"
+#include "lan9645/lan9645_mdb.h"
+#include "lan9645/lan9645_mirror.h"
+#include "lan9645/lan9645_mrp.h"
+#include "lan9645/lan9645_npi.h"
+#include "lan9645/lan9645_phylink.h"
+#include "lan9645/lan9645_police.h"
+#include "lan9645/lan9645_ptp.h"
+#include "lan9645/lan9645_psfp.h"
+#include "lan9645/lan9645_qos.h"
 #include "lan9645/lan9645_stats.h"
+#include "lan9645/lan9645_stream.h"
+#include "lan9645/lan9645_tc_flower.h"
+#include "lan9645/lan9645_tc_matchall.h"
+#include "lan9645/lan9645_tbf.h"
+#include "lan9645/lan9645_taprio.h"
+#include "lan9645/lan9645_vcap.h"
 #include "lan9645/lan9645_vlan.h"
 
 #define LAN9645_FEATURE_DEFAULT_VID        (1u)
 #define LAN9645_FEATURE_DEFAULT_MEMBER_MASK (0x103u) /* ports 0,1,8 */
 #define LAN9645_FEATURE_DEFAULT_UNTAG_MASK  (0x003u) /* untag copper 0/1 */
-#define LAN9645_FEATURE_MANUAL_INJ_PORT      (9u)
 
 static const char *s_feature_names[LAN9645_FEATURE_COUNT] = {
   "afi",
@@ -97,62 +120,6 @@ static void lan9645_feature_report_fail(
 }
 
 /**
- * @brief Applies MAC baseline verification for managed ports 0, 1, and 8.
- */
-static app_status_t lan9645_feature_apply_mac(lan9645_feature_matrix_t *matrix)
-{
-  static const uint8_t ports[] = {0u, 1u, 8u};
-  uint32_t i = 0u;
-  app_status_t st = APP_OK;
-
-  for (i = 0u; i < (uint32_t)(sizeof(ports) / sizeof(ports[0])); ++i) {
-    lan9645_core_port_cfg_t cfg = {0};
-    st = lan9645_core_get_port_cfg(matrix->core, ports[i], &cfg);
-    if (st != APP_OK) {
-      return st;
-    }
-  }
-
-  return APP_OK;
-}
-
-/**
- * @brief Applies NPI baseline verification by sampling EXT_CPU configuration.
- */
-static app_status_t lan9645_feature_apply_npi(lan9645_feature_matrix_t *matrix)
-{
-  uint32_t ext_cpu_cfg = 0u;
-  app_status_t st = lan9645_reg_read32_desc(
-    matrix->core->reg,
-    &LAN9645_REG_QSYS_EXT_CPU_CFG,
-    0u,
-    0u,
-    0u,
-    &ext_cpu_cfg
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-
-  if (LAN9645_FIELD_GET(LAN9645_QSYS_EXT_CPU_CFG_EXT_CPU_PORT, ext_cpu_cfg) != 8u) {
-    return APP_EIO;
-  }
-
-  return APP_OK;
-}
-
-/**
- * @brief Applies phylink baseline verification on RGMII1/DEV8 path.
- */
-static app_status_t lan9645_feature_apply_phylink(lan9645_feature_matrix_t *matrix)
-{
-  uint8_t link_up = 0u;
-  uint8_t duplex = 0u;
-  uint8_t speed = 0u;
-  return lan9645_core_get_rgmii_link(matrix->core, 1u, &link_up, &duplex, &speed);
-}
-
-/**
  * @brief Applies default VLAN baseline used by the managed STM32 profile.
  */
 static app_status_t lan9645_feature_apply_vlan(lan9645_feature_matrix_t *matrix)
@@ -180,82 +147,6 @@ static app_status_t lan9645_feature_apply_stats(lan9645_feature_matrix_t *matrix
 }
 
 /**
- * @brief Enables AFI baseline domain used by Linux reference profile.
- */
-static app_status_t lan9645_feature_apply_afi(lan9645_feature_matrix_t *matrix)
-{
-  uint32_t rd = 0u;
-  app_status_t st = lan9645_reg_rmw32_desc(
-    matrix->core->reg,
-    &LAN9645_REG_AFI_MISC_CTRL,
-    0u,
-    0u,
-    0u,
-    LAN9645_AFI_MISC_CTRL_AFI_ENA,
-    LAN9645_AFI_MISC_CTRL_AFI_ENA
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-
-  st = lan9645_reg_read32_desc(
-    matrix->core->reg,
-    &LAN9645_REG_AFI_MISC_CTRL,
-    0u,
-    0u,
-    0u,
-    &rd
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-  if ((rd & LAN9645_AFI_MISC_CTRL_AFI_ENA) == 0u) {
-    return APP_EIO;
-  }
-
-  return APP_OK;
-}
-
-/**
- * @brief Configures manual-injection header mode for the dedicated CPU injection port.
- */
-static app_status_t lan9645_feature_apply_manual_inj(lan9645_feature_matrix_t *matrix)
-{
-  const uint32_t mask = LAN9645_SYS_PORT_MODE_INCL_INJ_HDR;
-  const uint32_t value = LAN9645_SYS_PORT_MODE_INCL_INJ_HDR_SET(1u);
-  uint32_t rd = 0u;
-  app_status_t st = lan9645_reg_rmw32_desc(
-    matrix->core->reg,
-    &LAN9645_REG_SYS_PORT_MODE,
-    0u,
-    0u,
-    LAN9645_FEATURE_MANUAL_INJ_PORT,
-    mask,
-    value
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-
-  st = lan9645_reg_read32_desc(
-    matrix->core->reg,
-    &LAN9645_REG_SYS_PORT_MODE,
-    0u,
-    0u,
-    LAN9645_FEATURE_MANUAL_INJ_PORT,
-    &rd
-  );
-  if (st != APP_OK) {
-    return st;
-  }
-  if ((rd & mask) != value) {
-    return APP_EIO;
-  }
-
-  return APP_OK;
-}
-
-/**
  * @brief Initializes matrix state and marks baseline register-backed features.
  */
 app_status_t lan9645_feature_matrix_init(lan9645_feature_matrix_t *matrix, lan9645_core_t *core)
@@ -274,17 +165,63 @@ app_status_t lan9645_feature_matrix_init(lan9645_feature_matrix_t *matrix, lan96
 
   matrix->features[LAN9645_FEATURE_MAC].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_AFI].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_BUM].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_CBS].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_CUT_THRU].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_DCB].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_EEE].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_ETS].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_FP].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_HSR_PRP].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_LAG].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_MANUAL_INJ].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_MDB].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_MIRROR].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_MRP].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_NPI].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_MQPRIO].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_POLICE].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_PSFP].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_PTP].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_PHYLINK].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_QOS].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_STREAM].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_TC_MATCHALL].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_TC_FLOWER].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_TBF].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_TAPRIO].register_backed = 1u;
+  matrix->features[LAN9645_FEATURE_VCAP].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_VLAN].register_backed = 1u;
   matrix->features[LAN9645_FEATURE_STATS].register_backed = 1u;
 
   matrix->features[LAN9645_FEATURE_AFI].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_BUM].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_CBS].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_CUT_THRU].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_DCB].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_EEE].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_ETS].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_FP].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_HSR_PRP].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_LAG].enabled = 1u;
   matrix->features[LAN9645_FEATURE_MANUAL_INJ].enabled = 1u;
   matrix->features[LAN9645_FEATURE_MAC].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_MDB].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_MIRROR].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_MQPRIO].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_MRP].enabled = 1u;
   matrix->features[LAN9645_FEATURE_NPI].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_POLICE].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_PSFP].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_PTP].enabled = 1u;
   matrix->features[LAN9645_FEATURE_PHYLINK].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_QOS].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_STREAM].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_TC_MATCHALL].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_TC_FLOWER].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_TBF].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_TAPRIO].enabled = 1u;
+  matrix->features[LAN9645_FEATURE_VCAP].enabled = 1u;
   matrix->features[LAN9645_FEATURE_VLAN].enabled = 1u;
   matrix->features[LAN9645_FEATURE_STATS].enabled = 1u;
 
@@ -399,19 +336,88 @@ app_status_t lan9645_feature_matrix_apply(
 
   switch (feature) {
     case LAN9645_FEATURE_AFI:
-      st = lan9645_feature_apply_afi(matrix);
+      st = lan9645_afi_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_BUM:
+      st = lan9645_bum_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_CBS:
+      st = lan9645_cbs_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_CUT_THRU:
+      st = lan9645_cut_thru_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_DCB:
+      st = lan9645_dcb_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_EEE:
+      st = lan9645_eee_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_ETS:
+      st = lan9645_qos_apply_ets_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_FP:
+      st = lan9645_fp_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_HSR_PRP:
+      st = lan9645_hsr_prp_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_LAG:
+      st = lan9645_lag_apply_baseline(matrix->core);
       break;
     case LAN9645_FEATURE_MAC:
-      st = lan9645_feature_apply_mac(matrix);
+      st = lan9645_mac_apply_baseline(matrix->core);
       break;
     case LAN9645_FEATURE_MANUAL_INJ:
-      st = lan9645_feature_apply_manual_inj(matrix);
+      st = lan9645_manual_inj_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_MDB:
+      st = lan9645_mdb_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_MIRROR:
+      st = lan9645_mirror_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_MRP:
+      st = lan9645_mrp_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_MQPRIO:
+      st = lan9645_qos_apply_mqprio_baseline(matrix->core);
       break;
     case LAN9645_FEATURE_NPI:
-      st = lan9645_feature_apply_npi(matrix);
+      st = lan9645_npi_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_POLICE:
+      st = lan9645_police_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_PSFP:
+      st = lan9645_psfp_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_PTP:
+      st = lan9645_ptp_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_STREAM:
+      st = lan9645_stream_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_TC_FLOWER:
+      st = lan9645_tc_flower_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_TC_MATCHALL:
+      st = lan9645_tc_matchall_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_TBF:
+      st = lan9645_tbf_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_TAPRIO:
+      st = lan9645_taprio_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_VCAP:
+      st = lan9645_vcap_apply_baseline(matrix->core);
       break;
     case LAN9645_FEATURE_PHYLINK:
-      st = lan9645_feature_apply_phylink(matrix);
+      st = lan9645_phylink_apply_baseline(matrix->core);
+      break;
+    case LAN9645_FEATURE_QOS:
+      st = lan9645_qos_apply_baseline(matrix->core);
       break;
     case LAN9645_FEATURE_VLAN:
       st = lan9645_feature_apply_vlan(matrix);

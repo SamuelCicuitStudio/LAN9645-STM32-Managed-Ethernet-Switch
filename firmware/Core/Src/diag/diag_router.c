@@ -18,7 +18,7 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 
 static uint8_t s_initialized = 0u;
 static diag_router_state_t s_state = {
-  APP_OWNER_NONE,
+  APP_OWNER_USB,
   0u,
   0u,
   1u,
@@ -142,7 +142,14 @@ static app_status_t diag_router_tx_by_owner(const char *line, uint16_t len)
   }
 
   if (s_state.owner == APP_OWNER_USB) {
-    return diag_router_tx_usb(line, len);
+    st_usb = diag_router_tx_usb(line, len);
+    if (st_usb == APP_OK) {
+      return APP_OK;
+    }
+    if (s_state.uart_ready != 0u) {
+      return diag_router_tx_uart(line, len);
+    }
+    return st_usb;
   }
   if (s_state.owner == APP_OWNER_UART4) {
     return diag_router_tx_uart(line, len);
@@ -181,7 +188,7 @@ app_status_t diag_router_init(void)
     return APP_OK;
   }
 
-  s_state.owner = APP_OWNER_NONE;
+  s_state.owner = APP_OWNER_USB;
   s_state.usb_ready = 0u;
   s_state.uart_ready = 0u;
   s_state.mirror_when_none = 1u;

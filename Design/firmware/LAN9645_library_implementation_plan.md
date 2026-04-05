@@ -206,6 +206,28 @@ What is locked for now (baseline CLI):
 - `vlan set` / `vlan show`
 - `cnt read` / `cnt clear`
 - `feat list` / `feat enable` / `feat apply`
+- `feat summary` / `feat show <name>`
+- `eee show` / `eee set`
+- `fp show` / `fp set`
+- `fp verify show` / `fp verify set`
+- `fp frag show` / `fp frag set`
+- `dcb show` / `dcb trust` / `dcb default` / `dcb pfc`
+- `mac show` / `mac set`
+- `mirror show` / `mirror set`
+- `mirror src show` / `mirror src set`
+- `bum flood show` / `bum flood set`
+- `bum ipmc show` / `bum ipmc set`
+- `bum pgid show` / `bum pgid set`
+- `mqprio show` / `mqprio mode`
+- `mqprio weight`
+- `ets show` / `ets mode`
+- `ets weight`
+- `qos show` / `qos trust` / `qos default`
+- `qos dscp show` / `qos dscp set`
+- `qos pcpdei show` / `qos pcpdei set`
+- `qos rew show` / `qos rew set`
+- `qos tagmode show` / `qos tagmode set`
+- `qos rewport show` / `qos rewport set`
 - `eth show`
 - `net show`
 - `net check`
@@ -216,9 +238,9 @@ What is locked for now (baseline CLI):
 - `sanity spi`
 
 What is deferred on purpose:
-- advanced QoS/TSN controls
+- advanced QoS/TSN controls beyond scheduler + trust/default + DSCP-map + PCP/DEI-map + REW-tag mode/policy + REW-port policy runtime controls
 - advanced filtering/VCAP controls
-- FRER/HSR/PRP/MRP/PSFP runtime controls
+- FRER/HSR/PRP/MRP runtime controls
 - advanced per-feature error counters and deep diagnostics
 
 Expansion rule (no ambiguity):
@@ -522,6 +544,11 @@ Implemented now in firmware:
     - `cli contract`
   - updated `help` output to include:
     - `cli contract`
+  - extended feature-matrix CLI visibility with:
+    - `feat summary`
+    - `feat show <name>`
+  - updated `bringup check` to enforce feature-matrix closure gate:
+    - fails when `failed_count != 0` or `configured_count < enabled_count`
   - replaced legacy free-form error trailer with the fixed contract line so command failures now always map to explicit numeric + symbolic codes.
 
 F6 software status:
@@ -550,7 +577,7 @@ F1..F6 traceability matrix (software closure):
 | F3 VLAN baseline | `lan9645_vlan.h/.c`, `cli_core.c` | `vlan set`, `vlan show` | `DIAG_EVT_LAN_VLAN_CFG_FAIL` | complete | not performed |
 | F4 Counters | `lan9645_stats.h/.c`, `cli_core.c` | `cnt read`, `cnt clear` | `DIAG_EVT_LAN_CNT_OP_FAIL` | complete | not performed |
 | F5 IRQ contract | `lan9645_core.h/.c`, `main.c`, `cli_core.c` | `irq show`, `irq ack`, `irq clear` | `DIAG_EVT_LAN_IRQ_CAUSE`, `DIAG_EVT_LAN_IRQ_ACK_FAIL`, `DIAG_EVT_LAN_DROP_COUNTER_ALERT`, `DIAG_EVT_LAN_IRQ_STUCK` | complete | not performed |
-| F6 CLI envelope | `cli_core.c` | `cli contract` + fixed `cli result=...` line per command | explicit status-code mapping (`APP_*`) in CLI envelope | complete | not performed |
+| F6 CLI envelope | `cli_core.c` | `cli contract`, `feat summary`, `feat show`, and fixed `cli result=...` line per command | explicit status-code mapping (`APP_*`) in CLI envelope and `bringup check` feature-gate fail path | complete | not performed |
 
 Locked board-validation backlog (all pending):
 
@@ -602,23 +629,239 @@ What is now locked in code:
 - startup apply hook executed after managed profile apply
 4. CLI control surface is added:
 - `feat list`
+- `feat summary`
+- `feat show <name>`
 - `feat enable <name> <on|off>`
 - `feat apply <name|all>`
+- `afi show`
+- `afi set <0|1>`
+- `inj show <0..9>`
+- `inj set <0..9> <0..3>`
+- `cut show <0|1|8>`
+- `cut set <0|1|8> <0..7> <0x00..0xFF>`
+- `tbf qshow <0|1|8> <0..7>`
+- `tbf qset <0|1|8> <0..7> <0|1> <0..3> <0..32767> <0..63>`
+- `tbf pshow <0|1|8>`
+- `tbf pset <0|1|8> <0|1> <0..3> <0..32767> <0..63>`
+- `cbs qshow <0|1|8> <0..7>`
+- `cbs qset <0|1|8> <0..7> <0|1> <0..3> <0..32767> <0..63>`
+- `taprio show`
+- `taprio set <0..255> <0..31> <0|1>`
+- `taprio gate show <0|1|8>`
+- `taprio gate set <0|1|8> <0x00..0xFF>`
+- `taprio list show <0..31>`
+- `taprio list set <0..31> <0..7>`
+- `police pshow <0|1|8>`
+- `police pset <0|1|8> <0|1> <0|1> <0|1> <0x00..0xFF> <0..511>`
+- `police ishow <0..9>`
+- `police imode <0..9> <0|1> <0|1> <0..3> <0|1> <0|1>`
+- `police iopt <0..9> <0..31> <0|1>`
+- `police ipir <0..9> <0..4194303> <0..32767> <0..63>`
+- `stream show <0..127>`
+- `stream set <0..127> <0|1> <0|1> <0|1> <0..65535>`
+- `psfp sfid show <0..127>`
+- `psfp sfid set <0..127> <0|1> <0|1> <0|1> <0..65535>`
+- `psfp gate show <0..127>`
+- `psfp gate set <0..127> <0..7> <0|1> <0..15> <0|1>`
+- `psfp gate commit <0..127>`
+- `mqprio show <0|1|8>`
+- `mqprio mode <0|1|8> <strict|dwrr>`
+- `mqprio weight <0|1|8> <0..7> <0..31>`
+- `ets show <0|1|8>`
+- `ets mode <0|1|8> <strict|dwrr>`
+- `ets weight <0|1|8> <0..7> <0..31>`
+- `qos show <0|1|8>`
+- `qos trust <0|1|8> <none|pcp|dscp|both>`
+- `qos default <0|1|8> <0..7> <0|1>`
+- `qos dscp show <0..63>`
+- `qos dscp set <0..63> <0..7> <0|1> <0|1> <0|1>`
+- `qos pcpdei show <0|1|8> <0..7> <0|1>`
+- `qos pcpdei set <0|1|8> <0..7> <0|1> <0..7> <0|1> <0..7> <0|1>`
+- `qos rew show <0|1|8>`
+- `qos rew set <0|1|8> <0..3> <0..3>`
+- `qos tagmode show <0|1|8>`
+- `qos tagmode set <0|1|8> <0..3>`
+- `qos rewport show <0|1|8>`
+- `qos rewport set <0|1|8> <0..7> <0|1>`
+- `phylink show <0|1>`
+- `phylink set <0|1> <0|1> <0|1> <0|1> <0..7> <0|1> <0|1>`
+- `phylink cpu show <0|1|8>`
+- `phylink cpu set <0|1|8> <0|1> <10|100> <0|1>`
+- `npi show`
+- `npi ext set <0..9> <0x00..0xFF> <0|1> <0|1>`
+- `npi ifh set <0..3> <0..3>`
+- `npi rew set <0..3>`
+- `npi srcpgid set <0x000..0x3FF>`
+- `hsr_prp show`
+- `hsr_prp set <pgid_cpu_mask_hex>`
+- `lag show`
+- `lag set <aggr_mask_hex>`
+- `mdb cfg show <0..88>`
+- `mdb cfg set <0..88> <0|1> <0..7> <0|1>`
+- `mdb mask show <0..88>`
+- `mdb mask set <0..88> <member_mask_hex>`
+- `mdb ipmc show`
+- `mdb ipmc set <mcipv4_mask_hex> <mcipv6_mask_hex>`
+- `mrp show`
+- `mrp set <member_mask_hex>`
+- `ptp show`
+- `ptp global <0|1>`
+- `ptp wait <0|1|8> <0|1>`
+- `vcap show <0|1|8>`
+- `vcap set <0|1|8> <s1_raw_hex> <s2_raw_hex>`
+- `tcflower show <0|1|8>`
+- `tcflower set <0|1|8> <0|1>`
+- `tcmatch show <0|1|8>`
+- `tcmatch set <0|1|8> <0|1>`
 5. Diagnostic visibility is added:
 - feature-apply failures emit `DIAG_EVT_LAN_FEAT_CFG_FAIL`.
 
 Register-backed applies currently implemented in matrix:
 - `afi`
+- `bum`
+- `cbs`
+- `cut_thru`
+- `dcb`
+- `eee`
+- `ets`
+- `fp`
+- `hsr_prp`
+- `lag`
 - `manual_inj`
 - `mac`
+- `mdb`
+- `mirror`
+- `mqprio`
+- `mrp`
 - `npi`
+- `police`
+- `psfp`
+- `ptp`
 - `phylink`
+- `qos`
+- `stream`
+- `tc_flower`
+- `tc_matchall`
+- `tbf`
+- `taprio`
+- `vcap`
 - `vlan`
 - `stats`
 
+Deterministic baseline behavior now locked for new register-backed QoS domains:
+- `qos`: applies ingress/egress port QoS baseline on managed ports `0/1/8` using Linux-aligned register families `ANA_QOS_CFG`, `ANA_PCP_DEI_CFG`, `ANA_DSCP_CFG`, `REW_PORT_VLAN_CFG`, `REW_TAG_CFG`, and `REW_PCP_DEI_CFG` with readback verification.
+- `mqprio`: applies strict scheduler baseline (`DWRR` disabled) on managed ports `0/1/8` through `QSYS_SE_CFG` and `QSYS_SE_DWRR_CFG`.
+- `ets`: uses the same strict scheduler baseline as current `mqprio` default policy (no weighted DWRR yet).
+- runtime scheduler control now exists for `mqprio` and `ets` views:
+  - `mode strict`: `SE_RR_ENA=0`, `SE_DWRR_CNT=0`, all `DWRR_COST=0`
+  - `mode dwrr`: `SE_RR_ENA=1`, `SE_DWRR_CNT=7`, all `DWRR_COST=1`
+  - `weight`: per-queue DWRR cost (`queue 0..7`, `cost 0..31`) with readback verification
+  - `show`: readback snapshot reports `mode`, `rr`, `dwrr_cnt`, and queue `cost[]` for managed ports `0/1/8`
+- runtime per-port trust/default control now exists for `qos` view:
+  - `trust`: set `QOS_PCP_ENA` and `QOS_DSCP_ENA` per managed port (`none|pcp|dscp|both`)
+  - `default`: set `QOS_DEFAULT_VAL` (`0..7`) and `DP_DEFAULT_VAL` (`0..1`) per managed port
+  - `show`: readback snapshot reports trust/default values from `ANA_QOS_CFG`
+- runtime global DSCP-map control now exists for `qos` view:
+  - `dscp set`: programs `ANA_DSCP_CFG(dscp)` fields `QOS_DSCP_VAL`, `DP_DSCP_VAL`, `DSCP_TRUST_ENA`, and `DSCP_REWR_ENA` with readback verification
+  - `dscp show`: readback snapshot reports DSCP-map entry values for index `0..63`
+- runtime per-port PCP/DEI-map control now exists for `qos` view:
+  - `pcpdei set`: programs ingress mapping `ANA_PCP_DEI_CFG(port, idx)` and rewrite mapping `REW_PCP_DEI_CFG(port, idx)` for `idx=(8*dei)+pcp`
+  - `pcpdei show`: readback snapshot reports ingress and rewrite values for one managed-port `pcp/dei` selector
+- runtime per-port REW-tag policy control now exists for `qos` view:
+  - `rew set`: programs `REW_TAG_CFG.TAG_PCP_CFG` and `REW_TAG_CFG.TAG_DEI_CFG` (`0..3` each) with readback verification
+  - `rew show`: readback snapshot reports per-port rewrite-tag policy fields including `TAG_CFG`
+- runtime per-port REW-tag mode control now exists for `qos` view:
+  - `tagmode set`: programs `REW_TAG_CFG.TAG_CFG` (`0..3`) with readback verification
+  - `tagmode show`: readback snapshot reports per-port tag insertion mode
+- runtime per-port REW-port default control now exists for `qos` view:
+  - `rewport set`: programs `REW_PORT_VLAN_CFG.PORT_PCP` (`0..7`) and `REW_PORT_VLAN_CFG.PORT_DEI` (`0..1`) with readback verification
+  - `rewport show`: readback snapshot reports per-port rewrite default PCP/DEI values
+- runtime per-port cut-through control now exists:
+  - `cut set`: programs `ANA_CUT_THRU_CFG.CUT_THRU_SPD` (`0..7`) and `ANA_CUT_THRU_CFG.CUT_THRU_ENA` (`0..0xFF`) with readback verification
+  - `cut show`: readback snapshot reports per-port cut-through speed selector and traffic-class enable mask
+- runtime queue/port TBF control now exists:
+  - `tbf qset` / `tbf qshow`: programs and reports queue scheduler-element shaping fields (`SE_AVB_ENA`, `SE_FRM_MODE`, `CIR_RATE`, `CIR_BURST`) for managed ports
+  - `tbf pset` / `tbf pshow`: programs and reports port scheduler-element shaping fields with the same readback verification policy
+- runtime queue CBS control now exists:
+  - `cbs qset` / `cbs qshow`: programs and reports queue scheduler-element CBS fields (`SE_AVB_ENA`, `SE_FRM_MODE`, `CIR_RATE`, `CIR_BURST`) for managed ports
+- runtime TAPRIO/TAS control now exists:
+  - `taprio set` / `taprio show`: programs and reports global TAS fields (`REVISIT_DLY`, `LIST_NUM_MAX`, `ALWAYS_GUARD_BAND_SCH_Q`)
+  - `taprio gate set/show`: programs and reports per-port `TAS_GATE_STATE` mask on managed ports
+  - `taprio list set/show`: programs and reports per-list `TAS_LIST_STATE` by list index selector
+- runtime policer control now exists:
+  - `police pset` / `police pshow`: programs and reports per-port `ANA_POL_CFG` fields (`POL_CPU_REDIR_*`, `PORT_POL_ENA`, `QUEUE_POL_ENA`, `POL_ORDER`)
+  - `police imode` / `police iopt` / `police ipir` / `police ishow`: programs and reports policer-index fields across `ANA_POL_MODE`, `ANA_POL_PIR_STATE`, and `ANA_POL_PIR_CFG`
+- runtime stream control now exists:
+  - `stream set` / `stream show`: programs and reports SFID entry fields (`B_O_FRM`, `B_O_FRM_ENA`, `FORCE_BLOCK`, `MAX_SDU_LEN`) by SFID index through `ANA_SFIDTIDX`/`ANA_SFIDACCESS`
+- runtime PSFP control now exists:
+  - `psfp sfid set/show`: programs and reports SFID fields through `ANA_SFIDTIDX`/`ANA_SFIDACCESS`
+  - `psfp gate set/show`: programs and reports base stream-gate fields in `ANA_SG_CFG_3` for selected SGID
+  - `psfp gate commit`: triggers SG configuration commit and waits for `CONFIG_CHANGE` completion
+- runtime phylink control now exists:
+  - `phylink show/set`: programs and reports `HSIO_RGMII_CFG` lane, reset, and TX clock fields for RGMII index selectors
+  - `phylink cpu show/set`: programs and reports CPU-port MAC/admin state (`10/100`, duplex, RX/TX enable verify path) using phylink CPU helpers
+- runtime NPI control now exists:
+  - `npi show`: reports current conduit port, IFH policy, REW tag mode, queue mask, kill policy, and source PGID mask
+  - `npi ext/ifh/rew/srcpgid set`: applies partial updates through `lan9645_npi_get_cfg()` + `lan9645_npi_set_cfg()` with register readback verification
+- runtime AFI control now exists:
+  - `afi show`: reports global AFI enable state
+  - `afi set`: applies global AFI enable state with readback verification
+- runtime manual-injection control now exists:
+  - `inj show`: reports `SYS_PORT_MODE.INCL_INJ_HDR` for selected port `0..9`
+  - `inj set`: applies `SYS_PORT_MODE.INCL_INJ_HDR` for selected port `0..9` with readback verification
+- runtime HSR/PRP control now exists:
+  - `hsr_prp show`: reports reserved `PGID_CPU` destination mask
+  - `hsr_prp set`: applies `PGID_CPU` destination mask with readback verification
+- runtime LAG control now exists:
+  - `lag show`: reports current `ANA_AGGR_CFG` key-enable state
+  - `lag set`: applies `ANA_AGGR_CFG` aggregation-key mask with readback verification
+- runtime MDB control now exists:
+  - `mdb cfg show/set`: controls `ANA_PGID_CFG` (`SAN_ENA`, `CPUQ_DST_PGID`, `OBEY_VLAN`) per index `0..88`
+  - `mdb mask show/set`: controls `ANA_PGID.PGID` destination mask per index `0..88`
+  - `mdb ipmc show/set`: controls `PGID_MCIPV4`/`PGID_MCIPV6` destination masks
+- runtime MRP control now exists:
+  - `mrp show`: reports `PGID_MRP` destination mask
+  - `mrp set`: applies `PGID_MRP` destination mask with readback verification
+- runtime PTP control now exists:
+  - `ptp show`: reports global PTP enable state and per-port wait-for-timestamp policy (`0/1/8`)
+  - `ptp global`: enables/disables PTP global feature gate
+  - `ptp wait`: sets per-port wait-for-timestamp policy with readback verification
+- runtime VCAP control now exists:
+  - `vcap show`: reports managed-port S1/S2 decoded state and raw register snapshots
+  - `vcap set`: applies managed-port S1/S2 configuration from raw values with field-level range validation and readback verification
+- runtime tc classifier wrappers now exist:
+  - `tcflower show/set`: controls and reports S1 classifier enable path on managed ports using VCAP-backed runtime APIs
+  - `tcmatch show/set`: controls and reports S2 classifier enable path on managed ports using VCAP-backed runtime APIs
+Deterministic baseline behavior catalog (all listed domains are register-backed in this STM32 pass):
+- `afi`: applies deterministic AFI baseline by enabling `AFI_MISC_CTRL.AFI_ENA`.
+- `cbs`: applies Linux-aligned CBS disabled baseline on managed queue scheduler elements by setting `QSYS_SE_CFG.SE_AVB_ENA=1`, `QSYS_SE_CFG.SE_FRM_MODE=0`, and clearing `QSYS_CIR_CFG` rate/burst.
+- `cut_thru`: applies deterministic cut-through disable baseline on managed ports `0/1/8` by clearing `ANA_CUT_THRU_CFG.CUT_THRU_SPD` and `ANA_CUT_THRU_CFG.CUT_THRU_ENA`.
+- `dcb`: applies deterministic DCB baseline on managed ports `0/1/8` by forcing ingress trust defaults (`PCP on`, `DSCP off`, default prio/DPL `0`) and disabling PFC paths in `ANA_VLAN_CFG`, `ANA_PFC_CFG`, and `QSYS_SW_PORT_MODE`.
+- `eee`: applies deterministic EEE baseline on managed ports `0/1/8` by clearing `DEV_EEE_CFG.EEE_ENA` and `DEV_EEE_CFG.EEE_TIMER_WAKEUP`.
+- `fp`: applies deterministic frame-preemption baseline on managed ports `0/1/8` by enabling MAC-merge layer (`DEV_ENABLE_CONFIG`), forcing verification disabled (`DEV_VERIF_CONFIG`), clearing preemptable queue masks (`QSYS_PREEMPT_CFG`), and resetting additional fragment size (`SYS_FRONT_PORT_MODE`).
+- `hsr_prp`: applies deterministic HSR/PRP baseline by forcing reserved `PGID_CPU` to the CPU port mask (`port 8`) with readback verification, preparing supervision/control-plane traffic anchoring before advanced HSR/PRP rule programming.
+- `lag`: applies deterministic global LAG hash baseline (`L2`) by configuring `ANA_AGGR_CFG` with `AC_DMAC_ENA=1` and `AC_SMAC_ENA=1`, while clearing the other aggregation-key enables.
+- `mac`: applies deterministic managed-port MAC baseline on `0/1/8` by enforcing `100M/full`, administrative up, and readback verification of `admin/speed/duplex/RX/TX` state.
+- `manual_inj`: applies deterministic manual-injection baseline by programming `SYS_PORT_MODE.INCL_INJ_HDR=1` on dedicated injection port `9`.
+- `mdb`: applies deterministic multicast baseline by forcing all `ANA_PGID_CFG(0..88)` entries to `OBEY_VLAN=1` and keeping `ANA_PGID(MCIPV4/MCIPV6)=0` for snooping-default data paths until explicit MDB membership programming is added.
+- `mirror`: applies safe-off baseline by clearing `ANA_MIRRORPORTS`, `ANA_EMIRRORPORTS`, and `ANA_PORT_CFG.SRC_MIRROR_ENA` for managed ports `0/1/8`, with readback verification.
+- `mrp`: applies deterministic MRP baseline by forcing `ANA_PGID(PGID_MRP=57)` to `0` so reserved MRP test/control traffic can use a guaranteed blackhole destination path when required.
+- `npi`: applies deterministic NPI conduit baseline by programming `QSYS_EXT_CPU_CFG` (`EXT_CPU_PORT=8`, queue mask enabled, CPU-kill protections), setting `SYS_PORT_MODE` IFH prefix policy on port `8`, disabling `REW_TAG_CFG.TAG_CFG`, and clearing reflected forwarding in `ANA_PGID(PGID_SRC+CPU_PORT)`.
+- `phylink`: applies deterministic RGMII CPU-link baseline by enforcing port `8` admin/mode (`100M/full`), enabling `HSIO_RGMII_CFG` in-band lanes (`IB_ENA`, `IB_RX_ENA`, `IB_TX_ENA`), clearing RGMII reset bits, and verifying status sampling through `lan9645_core_get_rgmii_link()`.
+- `bum`: applies Linux-aligned flooding baseline via `ANA_FLOODING`/`ANA_FLOODING_IPMC` and reserved flood PGIDs (`UC/BC/MC/MCIPV4/MCIPV6`) while keeping IPMC data flood entries disabled by default.
+- `police`: applies Linux-aligned policer baseline using `ANA_POL_CFG`, `ANA_POL_MODE`, `ANA_POL_PIR_STATE`, and `ANA_POL_PIR_CFG` (order/redirect policy fixed, port/queue policing disabled, port policer indices reset to deterministic defaults).
+- `psfp`: applies deterministic stream filter/gate reset baseline on index 0 through `ANA_SFIDTIDX`/`ANA_SFIDACCESS` and `ANA_SG_*` configuration registers, then commits and waits for `CONFIG_CHANGE` completion.
+- `ptp`: applies deterministic baseline by clearing `GCB_FEAT_DISABLE.FEAT_PTP_DIS` and forcing `SYS_FRONT_PORT_MODE.DONT_WAIT_FOR_TS=0` on managed ports `0/1/8` so timestamp-dependent forwarding behavior stays deterministic before advanced PTP features are added.
+- `stream`: applies deterministic stream-filter baseline by resetting SFID index `0` through `ANA_SFIDTIDX`/`ANA_SFIDACCESS` and waiting for SFID command idle completion.
+- `tc_flower`: applies deterministic classifier baseline by reusing the VCAP no-rule state on managed ports `0/1/8`, keeping hardware offload paths prepared while no ACL rules are programmed.
+- `tc_matchall`: applies deterministic classifier baseline by reusing the VCAP no-rule state on managed ports `0/1/8`, keeping matchall offload hooks register-backed before explicit policing/mirroring actions are added.
+- `tbf`: applies deterministic token-bucket baseline on managed ports by disabling shaping mode on corresponding queue/port scheduler elements and clearing `QSYS_CIR_CFG` rate/burst fields.
+- `taprio`: applies deterministic TAS baseline through `TAS_*` registers by setting scheduler defaults, forcing managed-list entries to `ADMIN`, and restoring all-queues-open gate state on ports `0/1/8`.
+- `vcap`: applies deterministic ACL baseline on managed ports `0/1/8` by clearing `ANA_VCAP_CFG` (S1 disable + zero PAG/key selectors) and `ANA_VCAP_S2_CFG` (S2 disable + zero payload/lookup selectors), with readback verification.
+
 Non register-backed matrix entries:
-- remain explicit and controllable in CLI matrix state, and return deterministic `APP_ENOTSUP` when applied.
-- this preserves full feature inventory in code while keeping unsupported hardware mappings explicit until the next register-porting pass.
+- currently none in this STM32 matrix baseline; all declared Linux-reference feature IDs have a deterministic apply path.
+- `APP_ENOTSUP` remains reserved for future feature IDs that may be introduced before their register path is ported.
 
 ---
 
@@ -630,7 +873,7 @@ Non register-backed matrix entries:
 | S2 | Managed profile and reset path | Completed (baseline) | `lan9645_core.*`, `lan9645_profile_managed_rmii1.*`, `main.c` reset/profile apply |
 | S3 | USER_PHY adapter model | Completed (baseline) | `lan9645_user_phy_adapter.*` + deterministic logical address initialization in `eth_custom_phy_interface.c` |
 | S4 | LwIP netif link integration | Completed (baseline) | `LWIP/Target/ethernetif.c` link check uses USER_PHY + MAC speed/duplex update |
-| S5 | CLI command layer | Completed (baseline only) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `spi stats`, `serial show`, `irq`, `reg`, `port`, `vlan`, `cnt`, `feat`, `sanity spi` commands |
+| S5 | CLI command layer | Completed (expanded runtime control) | `cli_core.*` with `help`, `state`, `status`, `bringup check`, `diag clear`, `link`, `phy`, `lan id`, `lan check` (incl. IRQ gate checks), `lan profile apply`, `lan preflight`, `eth show`, `net show`, `net check`, `spi status`, `spi stats`, `serial show`, `irq`, `reg`, `port`, `vlan`, `cnt`, `feat`, `afi`, `inj`, `hsr_prp`, `lag`, `mdb`, `mrp`, `ptp`, `vcap`, `tcflower`, `tcmatch`, `sanity spi` commands |
 | S6 | UI service (HEART/STATUS/ERR + USER button) | Completed (baseline) | `ui_service.*`, `main.c` polling, button triggers `status all` |
 | S7 | Serial command ingress and runtime orchestrator | Completed (baseline) | `cli_ingress.*`, `app_orchestrator.*`, USB CDC + UART4 ingress wired in `main.c` and `usbd_cdc_if.c` |
 | S8 | Ping validation matrix | Deferred (not performed on hardware) | software progression assumes expected pass path; board execution pending |

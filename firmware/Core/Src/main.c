@@ -76,13 +76,6 @@ static lan9645_spi_t g_lan_spi;
 static lan9645_reg_t g_lan_reg;
 static lan9645_core_t g_lan_core;
 static lan9645_feature_matrix_t g_lan_features;
-static uint32_t g_lan_irq_last_edge_count = 0u;
-static uint32_t g_lan_irq_last_ana_anaintr = 0u;
-static uint32_t g_lan_irq_last_ana_anevents = 0u;
-static uint32_t g_lan_irq_last_intr_ident = 0u;
-static uint32_t g_lan_irq_last_intr_ident1 = 0u;
-static uint32_t g_lan_irq_last_dev_pending = 0u;
-static uint32_t g_lan_irq_last_report_ms = 0u;
 
 /* USER CODE END PV */
 
@@ -101,22 +94,9 @@ static void MX_RNG_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static diag_severity_t lan9645_irq_diag_severity(uint8_t severity_code)
-{
-  switch (severity_code)
-  {
-    case LAN9645_CORE_IRQ_SEV_ERR:
-      return DIAG_SEV_ERR;
-    case LAN9645_CORE_IRQ_SEV_WARN:
-      return DIAG_SEV_WARN;
-    case LAN9645_CORE_IRQ_SEV_INFO:
-    default:
-      break;
-  }
-
-  return DIAG_SEV_INFO;
-}
-
+/**
+ * @brief Converts STM32 SPI prescaler enum to numeric divider value.
+ */
 static uint32_t lan9645_spi_prescaler_to_div(uint32_t prescaler)
 {
   switch (prescaler)
@@ -133,6 +113,12 @@ static uint32_t lan9645_spi_prescaler_to_div(uint32_t prescaler)
   }
 }
 
+/**
+ * @brief Estimates effective SPI1 serial clock used by LAN9645 transactions.
+ *
+ * The clock is derived from the SPI1 kernel source selected in RCC plus the
+ * configured prescaler in `hspi->Init.BaudRatePrescaler`.
+ */
 static uint32_t lan9645_spi_effective_clock_hz(const SPI_HandleTypeDef *hspi)
 {
   uint32_t spi_ker_hz = 0u;
@@ -200,15 +186,17 @@ int main(void)
   MX_RTC_Init();
   MX_CRC_Init();
   MX_RNG_Init();
-  MX_LWIP_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+  /* Resolve the SPI bus clock used by LAN9645 setup and read padding rules. */
   uint32_t lan_spi_clock_hz = lan9645_spi_effective_clock_hz(&hspi1);
   if (lan_spi_clock_hz == 0u)
   {
+    /* Keep deterministic setup even when the peripheral clock query fails. */
     lan_spi_clock_hz = LAN9645_SPI_CLOCK_FALLBACK_HZ;
   }
 
+  /* Initialize timing and diagnostics first so all bring-up failures are visible. */
   if (time_service_init() != APP_OK)
   {
     Error_Handler();
@@ -221,10 +209,16 @@ int main(void)
   {
     Error_Handler();
   }
+  /* USB CDC is the primary CLI/diag channel, UART4 remains as fallback/mirror. */
+  if (diag_router_set_owner(APP_OWNER_USB) != APP_OK)
+  {
+    Error_Handler();
+  }
   if (diag_router_set_uart_ready(1u) != APP_OK)
   {
     Error_Handler();
   }
+  /* Bring up app state machine and UI/CLI services before LAN setup. */
   if (app_orchestrator_init() != APP_OK)
   {
     Error_Handler();
@@ -245,6 +239,8 @@ int main(void)
   (void)ui_service_set_status(0u);
   (void)ui_service_set_error(0u);
   (void)ui_service_set_run(0u);
+
+  /* Build the LAN9645 SPI/register/core stack from low-level to high-level APIs. */
   if (lan9645_spi_init(&g_lan_spi, &hspi1, SPI_NSS_GPIO_Port, SPI_NSS_Pin) != APP_OK)
   {
     Error_Handler();
@@ -267,7 +263,9 @@ int main(void)
     Error_Handler();
   }
   lan9645_runtime_set_feature_matrix(&g_lan_features);
-  if (lan9645_runtime_irq_init(LAN9645_IRQ_STUCK_TIMEOUT_MS) != APP_OK)
+  if (app_orchestrator_lan_irq_init(
+      LAN9645_IRQ_STUCK_TIMEOUT_MS,
+      LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS) != APP_OK)
   {
     Error_Handler();
   }
@@ -280,6 +278,8 @@ int main(void)
   {
     Error_Handler();
   }
+
+  /* Apply board profile then enable firmware-selected feature policies. */
   (void)app_orchestrator_set_state(APP_STATE_LAN_SPI_TEST);
   {
     lan9645_profile_result_t lan_profile = {0};
@@ -302,24 +302,6 @@ int main(void)
     }
     else
     {
-      app_status_t eth_pf = ethernetif_preflight();
-
-      if (eth_pf != APP_OK)
-      {
-        diag_event_t lan_evt;
-        lan_evt.id = DIAG_EVT_LAN_SPI_TIMEOUT;
-        lan_evt.severity = DIAG_SEV_ERR;
-        lan_evt.dev = 8u;
-        lan_evt.reg = 0u;
-        lan_evt.arg0 = (uint32_t)eth_pf;
-        lan_evt.arg1 = 1u;
-        (void)diag_core_report(&lan_evt);
-        (void)diag_router_write_event(&lan_evt);
-        (void)app_orchestrator_set_fault((uint32_t)eth_pf);
-        (void)ui_service_set_error(1u);
-        Error_Handler();
-      }
-
       diag_event_t lan_evt;
       lan_evt.id = DIAG_EVT_LAN_SPI_IFSTAT;
       lan_evt.severity = DIAG_SEV_INFO;
@@ -329,10 +311,6 @@ int main(void)
       lan_evt.arg1 = lan_profile.chip_id;
       (void)diag_core_report(&lan_evt);
       (void)diag_router_write_event(&lan_evt);
-      (void)app_orchestrator_set_state(APP_STATE_NET_READY);
-      (void)ui_service_set_status(1u);
-      (void)ui_service_set_error(0u);
-      (void)ui_service_set_run(1u);
       {
         app_status_t feat_st = lan9645_feature_matrix_apply_all(&g_lan_features);
         if (feat_st != APP_OK)
@@ -348,8 +326,34 @@ int main(void)
           (void)diag_router_write_event(&feat_evt);
         }
       }
+      MX_LWIP_Init();
+      {
+        /* Ensure ethernetif + custom PHY glue is ready before entering RUN state. */
+        app_status_t eth_pf = ethernetif_preflight();
+        if (eth_pf != APP_OK)
+        {
+          diag_event_t eth_evt;
+          eth_evt.id = DIAG_EVT_LAN_SPI_TIMEOUT;
+          eth_evt.severity = DIAG_SEV_ERR;
+          eth_evt.dev = 8u;
+          eth_evt.reg = 0u;
+          eth_evt.arg0 = (uint32_t)eth_pf;
+          eth_evt.arg1 = 1u;
+          (void)diag_core_report(&eth_evt);
+          (void)diag_router_write_event(&eth_evt);
+          (void)app_orchestrator_set_fault((uint32_t)eth_pf);
+          (void)ui_service_set_error(1u);
+          Error_Handler();
+        }
+      }
+      (void)app_orchestrator_set_state(APP_STATE_NET_READY);
+      (void)ui_service_set_status(1u);
+      (void)ui_service_set_error(0u);
+      (void)ui_service_set_run(1u);
     }
   }
+
+  /* Publish a boot marker only after diagnostics, LAN, and network are online. */
   (void)diag_router_poll();
   {
     diag_event_t boot_evt;
@@ -374,138 +378,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    /* Process RX/TX packets and service outgoing diagnostics stream. */
     MX_LWIP_Process();
     (void)diag_router_poll();
-    {
-      uint32_t now_ms = HAL_GetTick();
-      uint8_t irq_stuck_evt = 0u;
-      lan9645_irq_state_t irq_state = {0};
-      uint8_t irq_high = (HAL_GPIO_ReadPin(IRQ0_GPIO_Port, IRQ0_Pin) == GPIO_PIN_SET) ? 1u : 0u;
+    /* Supervise LAN IRQ causes/ack flow and expose errors through diagnostics. */
+    (void)app_orchestrator_lan_irq_step(
+      &g_lan_core,
+      (HAL_GPIO_ReadPin(IRQ0_GPIO_Port, IRQ0_Pin) == GPIO_PIN_SET) ? 1u : 0u,
+      HAL_GetTick()
+    );
 
-      (void)lan9645_runtime_irq_poll(irq_high, now_ms, &irq_stuck_evt);
-      (void)lan9645_runtime_irq_get(&irq_state);
-
-      if ((irq_high != 0u) || (irq_state.edge_count != g_lan_irq_last_edge_count))
-      {
-        lan9645_core_irq_regs_t irq_regs = {0};
-        app_status_t irq_st = lan9645_core_get_irq_regs(&g_lan_core, &irq_regs);
-
-        if (irq_st == APP_OK)
-        {
-          lan9645_core_irq_analysis_t irq_eval = {0};
-          uint32_t prev_drop_pending = g_lan_irq_last_ana_anevents & LAN9645_CORE_ANA_EVT_DROP_MASK;
-          uint8_t changed = 0u;
-          uint8_t periodic = 0u;
-          app_status_t eval_st = lan9645_core_eval_irq_actions(&irq_regs, &irq_eval);
-
-          if (eval_st == APP_OK)
-          {
-            if ((irq_eval.intr_ident != g_lan_irq_last_intr_ident) ||
-                (irq_eval.intr_ident1 != g_lan_irq_last_intr_ident1) ||
-                (irq_regs.ana_anaintr != g_lan_irq_last_ana_anaintr) ||
-                (irq_eval.ana_anevents != g_lan_irq_last_ana_anevents) ||
-                (irq_eval.dev_pending != g_lan_irq_last_dev_pending))
-            {
-              changed = 1u;
-            }
-
-            if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
-            {
-              periodic = 1u;
-            }
-
-            if ((irq_eval.has_cause != 0u) &&
-                ((changed != 0u) || (periodic != 0u)) &&
-                ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_REPORT_CAUSE) != 0u))
-            {
-              diag_event_t irq_cause_evt;
-              irq_cause_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
-              irq_cause_evt.severity = lan9645_irq_diag_severity(irq_eval.severity_code);
-              irq_cause_evt.dev = 8u;
-              irq_cause_evt.reg = irq_eval.ana_anevents;
-              irq_cause_evt.arg0 = irq_eval.intr_ident;
-              irq_cause_evt.arg1 = irq_eval.dev_pending;
-              (void)diag_core_report(&irq_cause_evt);
-              (void)diag_router_write_event(&irq_cause_evt);
-              g_lan_irq_last_report_ms = now_ms;
-            }
-
-            if (((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_REPORT_DROP_ALERT) != 0u) &&
-                (irq_eval.drop_events != 0u) &&
-                (irq_eval.drop_events != prev_drop_pending))
-            {
-              diag_event_t drop_evt;
-              drop_evt.id = DIAG_EVT_LAN_DROP_COUNTER_ALERT;
-              drop_evt.severity = DIAG_SEV_WARN;
-              drop_evt.dev = 8u;
-              drop_evt.reg = irq_eval.ana_anevents;
-              drop_evt.arg0 = irq_eval.drop_events;
-              drop_evt.arg1 = irq_eval.dev_pending;
-              (void)diag_core_report(&drop_evt);
-              (void)diag_router_write_event(&drop_evt);
-            }
-
-            if ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_ESCALATE_ERROR_LED) != 0u)
-            {
-              (void)ui_service_set_error(1u);
-            }
-
-            g_lan_irq_last_ana_anaintr = irq_regs.ana_anaintr;
-            g_lan_irq_last_ana_anevents = irq_eval.ana_anevents;
-            g_lan_irq_last_intr_ident = irq_eval.intr_ident;
-            g_lan_irq_last_intr_ident1 = irq_eval.intr_ident1;
-            g_lan_irq_last_dev_pending = irq_eval.dev_pending;
-
-            if ((irq_eval.ack_required != 0u) &&
-                ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_ACK_ANA_EVENTS) != 0u))
-            {
-              uint32_t remaining = 0u;
-              app_status_t ack_st = lan9645_core_ack_irq_checked(&g_lan_core, irq_eval.ana_anevents, &remaining);
-              if (ack_st != APP_OK)
-              {
-                diag_event_t irq_ack_evt;
-                irq_ack_evt.id = DIAG_EVT_LAN_IRQ_ACK_FAIL;
-                irq_ack_evt.severity = DIAG_SEV_ERR;
-                irq_ack_evt.dev = 8u;
-                irq_ack_evt.reg = irq_eval.ana_anevents;
-                irq_ack_evt.arg0 = (uint32_t)(int32_t)ack_st;
-                irq_ack_evt.arg1 = remaining;
-                (void)diag_core_report(&irq_ack_evt);
-                (void)diag_router_write_event(&irq_ack_evt);
-              }
-            }
-          }
-        }
-        else if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
-        {
-          diag_event_t irq_read_evt;
-          irq_read_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
-          irq_read_evt.severity = DIAG_SEV_ERR;
-          irq_read_evt.dev = 8u;
-          irq_read_evt.reg = 0u;
-          irq_read_evt.arg0 = (uint32_t)(int32_t)irq_st;
-          irq_read_evt.arg1 = 0u;
-          (void)diag_core_report(&irq_read_evt);
-          (void)diag_router_write_event(&irq_read_evt);
-          g_lan_irq_last_report_ms = now_ms;
-        }
-      }
-
-      g_lan_irq_last_edge_count = irq_state.edge_count;
-
-      if (irq_stuck_evt != 0u)
-      {
-        diag_event_t irq_evt;
-        irq_evt.id = DIAG_EVT_LAN_IRQ_STUCK;
-        irq_evt.severity = DIAG_SEV_WARN;
-        irq_evt.dev = 8u;
-        irq_evt.reg = 0u;
-        irq_evt.arg0 = irq_state.edge_count;
-        irq_evt.arg1 = irq_state.stuck_timeout_ms;
-        (void)diag_core_report(&irq_evt);
-        (void)diag_router_write_event(&irq_evt);
-      }
-    }
+    /* Execute CLI commands and ingest fallback UART4 bytes into CLI ingress. */
     (void)cli_core_poll();
     {
       uint8_t rx = 0u;
@@ -515,6 +398,8 @@ int main(void)
       }
     }
     (void)cli_ingress_poll();
+
+    /* Refresh LED/button service and map user button press to quick status dump. */
     (void)ui_service_poll();
     if (ui_service_take_button_event() != 0u)
     {
@@ -857,6 +742,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == IRQ0_Pin)
   {
+    /* Keep EXTI ISR minimal: only latch edge count, full handling runs in main loop. */
     lan9645_runtime_irq_on_exti();
   }
 }

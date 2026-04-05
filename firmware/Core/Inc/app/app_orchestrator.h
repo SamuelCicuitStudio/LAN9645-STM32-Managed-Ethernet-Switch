@@ -13,6 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "app_common_types.h"
+#include "lan9645/lan9645_core.h"
 
 /**
  * @brief Main firmware phases used during bring-up and steady-state operation.
@@ -86,6 +87,42 @@ const char *app_orchestrator_state_name(app_state_t state);
  * @return @ref APP_OK on success.
  */
 app_status_t app_orchestrator_get_snapshot(app_orchestrator_snapshot_t *out);
+
+/**
+ * @brief Initializes LAN IRQ supervision used by the main runtime loop.
+ *
+ * This helper owns the software state used to detect changes in LAN9645 IRQ
+ * causes, periodic reporting, and stuck IRQ line conditions.
+ *
+ * @param[in] stuck_timeout_ms Timeout used to classify IRQ line stuck-high.
+ * @param[in] cause_report_interval_ms Minimum interval between repeated
+ *            identical IRQ-cause reports.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t app_orchestrator_lan_irq_init(
+  uint32_t stuck_timeout_ms,
+  uint32_t cause_report_interval_ms
+);
+
+/**
+ * @brief Performs one LAN IRQ supervision step.
+ *
+ * The function polls IRQ line runtime state, reads/evaluates LAN9645 IRQ
+ * registers when needed, reports diagnostics events, acknowledges ANA events,
+ * and raises the UI error indicator when severe events are detected.
+ *
+ * @param[in,out] core Initialized LAN9645 core context.
+ * @param[in] irq_high Sampled logic level of the IRQ line (1 = high).
+ * @param[in] now_ms Current system tick in milliseconds.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t app_orchestrator_lan_irq_step(
+  lan9645_core_t *core,
+  uint8_t irq_high,
+  uint32_t now_ms
+);
 
 #ifdef __cplusplus
 }
