@@ -316,11 +316,16 @@ Implemented now in firmware:
     - `spi stats clear`
 
 F1 software status:
-- **Partially complete**
+- **Software complete**
 
-Remaining to close F1:
-1. Include SPI telemetry line in `status all` aggregate output.
-2. Ensure SPI transport failures are mirrored into diagnostics event stream (not only CLI command return codes).
+F1 closure evidence:
+1. `status all` now includes SPI telemetry output (`cli_cmd_spi_stats()`).
+2. SPI read/write transport failures now emit diagnostics events from the register layer:
+   - `DIAG_EVT_LAN_SPI_TIMEOUT` for timeout class failures
+   - `DIAG_EVT_LAN_SPI_IFSTAT` for non-timeout transport failures
+3. SPI failure events are both:
+   - recorded in diagnostics core counters
+   - forwarded as serial event lines through diagnostics router
 
 Hardware validation status:
 - `not performed` (board unavailable).

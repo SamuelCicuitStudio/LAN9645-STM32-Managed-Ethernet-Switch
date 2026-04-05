@@ -7,7 +7,40 @@
 
 #include <string.h>
 
+#include "diag/diag_core.h"
+#include "diag/diag_router.h"
 #include "main.h"
+
+/**
+ * @brief Reports one SPI transport failure into diagnostics storage and routed logs.
+ *
+ * @param[in] st Application status returned by the SPI transport.
+ * @param[in] reg_addr Register address involved in the failed access.
+ * @param[in] is_write Set to 1 for write operation, 0 for read operation.
+ */
+static void lan9645_reg_report_spi_failure(app_status_t st, uint32_t reg_addr, uint8_t is_write)
+{
+  diag_event_t evt = {0};
+
+  if (st == APP_OK) {
+    return;
+  }
+
+  /* Keep diagnostics focused on transport failures only. */
+  if ((st == APP_EINVAL) || (st == APP_ESTATE) || (st == APP_ENOTSUP)) {
+    return;
+  }
+
+  evt.id = (st == APP_ETIMEOUT) ? DIAG_EVT_LAN_SPI_TIMEOUT : DIAG_EVT_LAN_SPI_IFSTAT;
+  evt.severity = DIAG_SEV_ERR;
+  evt.dev = 0u;
+  evt.reg = reg_addr;
+  evt.arg0 = (uint32_t)(int32_t)st;
+  evt.arg1 = (is_write != 0u) ? 1u : 0u;
+
+  (void)diag_core_report(&evt);
+  (void)diag_router_write_event(&evt);
+}
 
 /**
  * @brief Validates that the register context is ready for use.
@@ -271,7 +304,11 @@ app_status_t lan9645_reg_read32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t 
     return st;
   }
 
-  return lan9645_spi_read32(ctx->spi, reg_addr, value);
+  st = lan9645_spi_read32(ctx->spi, reg_addr, value);
+  if (st != APP_OK) {
+    lan9645_reg_report_spi_failure(st, reg_addr, 0u);
+  }
+  return st;
 }
 
 /**
@@ -290,7 +327,11 @@ app_status_t lan9645_reg_write32(lan9645_reg_t *ctx, uint32_t reg_addr, uint32_t
     return st;
   }
 
-  return lan9645_spi_write32(ctx->spi, reg_addr, value);
+  st = lan9645_spi_write32(ctx->spi, reg_addr, value);
+  if (st != APP_OK) {
+    lan9645_reg_report_spi_failure(st, reg_addr, 1u);
+  }
+  return st;
 }
 
 /**

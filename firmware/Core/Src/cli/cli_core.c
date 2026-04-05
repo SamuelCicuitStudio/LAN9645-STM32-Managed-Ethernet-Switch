@@ -583,6 +583,7 @@ static app_status_t cli_cmd_status_all(void)
   if ((core != NULL) && (core->initialized != 0u)) {
     uint32_t feat = 0u;
     (void)cli_cmd_spi_status();
+    (void)cli_cmd_spi_stats();
     if (lan9645_core_read_feat_disable(core, &feat) == APP_OK) {
       (void)cli_writef("lan feat_disable=0x%08lX\r\n", (unsigned long)feat);
     } else {
