@@ -942,3 +942,115 @@ app_status_t lan9645_core_ack_irq(lan9645_core_t *ctx, uint32_t ana_anevents_mas
     ana_anevents_mask
   );
 }
+
+/**
+ * @brief Acknowledges ANA events and readback-verifies that selected bits cleared.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] ana_anevents_mask ANA events to clear with W1C semantics.
+ * @param[out] remaining_mask Optional mask of still-set events after acknowledge.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_ack_irq_checked(
+  lan9645_core_t *ctx,
+  uint32_t ana_anevents_mask,
+  uint32_t *remaining_mask
+)
+{
+  uint32_t readback = 0u;
+  uint32_t remain = 0u;
+  app_status_t st = APP_OK;
+
+  if (remaining_mask != NULL) {
+    *remaining_mask = 0u;
+  }
+
+  st = lan9645_core_ack_irq(ctx, ana_anevents_mask);
+  if (st != APP_OK) {
+    return st;
+  }
+  if (ana_anevents_mask == 0u) {
+    return APP_OK;
+  }
+
+  st = lan9645_reg_read32_desc(
+    ctx->reg,
+    &LAN9645_REG_ANA_ANEVENTS,
+    0u,
+    0u,
+    0u,
+    &readback
+  );
+  if (st != APP_OK) {
+    return st;
+  }
+
+  remain = readback & ana_anevents_mask;
+  if (remaining_mask != NULL) {
+    *remaining_mask = remain;
+  }
+  if (remain != 0u) {
+    return APP_EIO;
+  }
+
+  return APP_OK;
+}
+
+/**
+ * @brief Converts IRQ register snapshots into deterministic action recommendations.
+ *
+ * @param[in] regs IRQ register snapshot.
+ * @param[out] out Decoded analysis output.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_eval_irq_actions(
+  const lan9645_core_irq_regs_t *regs,
+  lan9645_core_irq_analysis_t *out
+)
+{
+  if ((regs == NULL) || (out == NULL)) {
+    return APP_EINVAL;
+  }
+
+  memset(out, 0, sizeof(*out));
+  out->ana_anevents = regs->ana_anevents;
+  out->intr_ident = regs->intr_ident;
+  out->intr_ident1 = regs->intr_ident1;
+  out->dev_pending = LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, regs->dev_intr_ident);
+  out->drop_events = regs->ana_anevents & LAN9645_CORE_ANA_EVT_DROP_MASK;
+  out->warn_events = regs->ana_anevents & LAN9645_CORE_ANA_EVT_WARN_MASK;
+  out->err_events = regs->ana_anevents & LAN9645_CORE_ANA_EVT_ERR_MASK;
+
+  if ((regs->ana_anevents != 0u) ||
+      (regs->intr_ident != 0u) ||
+      (regs->intr_ident1 != 0u) ||
+      (out->dev_pending != 0u)) {
+    out->has_cause = 1u;
+    out->action_mask |= LAN9645_CORE_IRQ_ACTION_REPORT_CAUSE;
+  }
+
+  if (regs->ana_anevents != 0u) {
+    out->ack_required = 1u;
+    out->action_mask |= LAN9645_CORE_IRQ_ACTION_ACK_ANA_EVENTS;
+  }
+
+  if (out->drop_events != 0u) {
+    out->action_mask |= LAN9645_CORE_IRQ_ACTION_REPORT_DROP_ALERT;
+  }
+
+  if (out->err_events != 0u) {
+    out->severity_code = LAN9645_CORE_IRQ_SEV_ERR;
+    out->action_mask |= LAN9645_CORE_IRQ_ACTION_ESCALATE_ERROR_LED;
+  } else if ((out->warn_events != 0u) ||
+             (regs->intr_ident != 0u) ||
+             (regs->intr_ident1 != 0u) ||
+             (out->dev_pending != 0u)) {
+    out->severity_code = LAN9645_CORE_IRQ_SEV_WARN;
+  } else {
+    out->severity_code = LAN9645_CORE_IRQ_SEV_INFO;
+  }
+
+  return APP_OK;
+}

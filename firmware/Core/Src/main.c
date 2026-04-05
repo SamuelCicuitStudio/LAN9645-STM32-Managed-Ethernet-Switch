@@ -50,29 +50,6 @@
 #define LAN9645_SPI_CLOCK_FALLBACK_HZ (24000000u)
 #define LAN9645_IRQ_STUCK_TIMEOUT_MS (200u)
 #define LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS (250u)
-#define LAN9645_ANA_EVT_LLCT_PORT_ERR      LAN9645_BIT(30u)
-#define LAN9645_ANA_EVT_CPU_LEARN_FAILED   LAN9645_BIT(21u)
-#define LAN9645_ANA_EVT_AUTO_LEARN_FAILED  LAN9645_BIT(20u)
-#define LAN9645_ANA_EVT_LEARN_DROP         LAN9645_BIT(23u)
-#define LAN9645_ANA_EVT_AGED_ENTRY         LAN9645_BIT(22u)
-#define LAN9645_ANA_EVT_DROPPED            LAN9645_BIT(16u)
-#define LAN9645_ANA_EVT_CLASSIFIED_DROP    LAN9645_BIT(15u)
-#define LAN9645_ANA_EVT_VLAN_DISCARD       LAN9645_BIT(13u)
-#define LAN9645_ANA_EVT_FWD_DISCARD        LAN9645_BIT(12u)
-#define LAN9645_ANA_EVT_SEQ_GEN_ERR_0      LAN9645_BIT(1u)
-#define LAN9645_ANA_EVT_SEQ_GEN_ERR_1      LAN9645_BIT(0u)
-#define LAN9645_ANA_EVT_ERR_MASK           (LAN9645_ANA_EVT_LLCT_PORT_ERR | \
-                                            LAN9645_ANA_EVT_CPU_LEARN_FAILED | \
-                                            LAN9645_ANA_EVT_AUTO_LEARN_FAILED | \
-                                            LAN9645_ANA_EVT_SEQ_GEN_ERR_0 | \
-                                            LAN9645_ANA_EVT_SEQ_GEN_ERR_1)
-#define LAN9645_ANA_EVT_DROP_MASK          (LAN9645_ANA_EVT_DROPPED | \
-                                            LAN9645_ANA_EVT_CLASSIFIED_DROP | \
-                                            LAN9645_ANA_EVT_VLAN_DISCARD | \
-                                            LAN9645_ANA_EVT_FWD_DISCARD | \
-                                            LAN9645_ANA_EVT_LEARN_DROP)
-#define LAN9645_ANA_EVT_WARN_MASK          (LAN9645_ANA_EVT_DROP_MASK | \
-                                            LAN9645_ANA_EVT_AGED_ENTRY)
 
 /* USER CODE END PD */
 
@@ -122,22 +99,19 @@ static void MX_RNG_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static diag_severity_t lan9645_irq_cause_severity(
-  uint32_t ana_anevents,
-  uint32_t intr_ident,
-  uint32_t intr_ident1,
-  uint32_t dev_pending
-)
+static diag_severity_t lan9645_irq_diag_severity(uint8_t severity_code)
 {
-  if ((ana_anevents & LAN9645_ANA_EVT_ERR_MASK) != 0u) {
-    return DIAG_SEV_ERR;
+  switch (severity_code)
+  {
+    case LAN9645_CORE_IRQ_SEV_ERR:
+      return DIAG_SEV_ERR;
+    case LAN9645_CORE_IRQ_SEV_WARN:
+      return DIAG_SEV_WARN;
+    case LAN9645_CORE_IRQ_SEV_INFO:
+    default:
+      break;
   }
-  if (((ana_anevents & LAN9645_ANA_EVT_WARN_MASK) != 0u) ||
-      (intr_ident != 0u) ||
-      (intr_ident1 != 0u) ||
-      (dev_pending != 0u)) {
-    return DIAG_SEV_WARN;
-  }
+
   return DIAG_SEV_INFO;
 }
 
@@ -396,82 +370,102 @@ int main(void)
 
         if (irq_st == APP_OK)
         {
-          uint32_t dev_pending = LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ident);
-          uint32_t drop_pending = irq_regs.ana_anevents & LAN9645_ANA_EVT_DROP_MASK;
-          uint32_t prev_drop_pending = g_lan_irq_last_ana_anevents & LAN9645_ANA_EVT_DROP_MASK;
+          lan9645_core_irq_analysis_t irq_eval = {0};
+          uint32_t prev_drop_pending = g_lan_irq_last_ana_anevents & LAN9645_CORE_ANA_EVT_DROP_MASK;
           uint8_t changed = 0u;
           uint8_t periodic = 0u;
+          app_status_t eval_st = lan9645_core_eval_irq_actions(&irq_regs, &irq_eval);
 
-          if ((irq_regs.intr_ident != g_lan_irq_last_intr_ident) ||
-              (irq_regs.intr_ident1 != g_lan_irq_last_intr_ident1) ||
-              (irq_regs.ana_anaintr != g_lan_irq_last_ana_anaintr) ||
-              (irq_regs.ana_anevents != g_lan_irq_last_ana_anevents) ||
-              (dev_pending != g_lan_irq_last_dev_pending))
+          if (eval_st == APP_OK)
           {
-            changed = 1u;
-          }
-
-          if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
-          {
-            periodic = 1u;
-          }
-
-          if (((irq_regs.intr_ident != 0u) || (irq_regs.intr_ident1 != 0u) ||
-               (irq_regs.ana_anevents != 0u) || (dev_pending != 0u)) &&
-              ((changed != 0u) || (periodic != 0u)))
-          {
-            diag_event_t irq_cause_evt;
-            irq_cause_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
-            irq_cause_evt.severity = lan9645_irq_cause_severity(
-              irq_regs.ana_anevents,
-              irq_regs.intr_ident,
-              irq_regs.intr_ident1,
-              dev_pending
-            );
-            irq_cause_evt.dev = 8u;
-            irq_cause_evt.reg = irq_regs.ana_anevents;
-            irq_cause_evt.arg0 = irq_regs.intr_ident;
-            irq_cause_evt.arg1 = dev_pending;
-            (void)diag_core_report(&irq_cause_evt);
-            (void)diag_router_write_event(&irq_cause_evt);
-            g_lan_irq_last_report_ms = now_ms;
-          }
-
-          if ((drop_pending != 0u) && (drop_pending != prev_drop_pending))
-          {
-            diag_event_t drop_evt;
-            drop_evt.id = DIAG_EVT_LAN_DROP_COUNTER_ALERT;
-            drop_evt.severity = DIAG_SEV_WARN;
-            drop_evt.dev = 8u;
-            drop_evt.reg = irq_regs.ana_anevents;
-            drop_evt.arg0 = drop_pending;
-            drop_evt.arg1 = dev_pending;
-            (void)diag_core_report(&drop_evt);
-            (void)diag_router_write_event(&drop_evt);
-          }
-
-          g_lan_irq_last_ana_anaintr = irq_regs.ana_anaintr;
-          g_lan_irq_last_ana_anevents = irq_regs.ana_anevents;
-          g_lan_irq_last_intr_ident = irq_regs.intr_ident;
-          g_lan_irq_last_intr_ident1 = irq_regs.intr_ident1;
-          g_lan_irq_last_dev_pending = dev_pending;
-
-          if (irq_regs.ana_anevents != 0u)
-          {
-            app_status_t ack_st = lan9645_core_ack_irq(&g_lan_core, irq_regs.ana_anevents);
-            if (ack_st != APP_OK)
+            if ((irq_eval.intr_ident != g_lan_irq_last_intr_ident) ||
+                (irq_eval.intr_ident1 != g_lan_irq_last_intr_ident1) ||
+                (irq_regs.ana_anaintr != g_lan_irq_last_ana_anaintr) ||
+                (irq_eval.ana_anevents != g_lan_irq_last_ana_anevents) ||
+                (irq_eval.dev_pending != g_lan_irq_last_dev_pending))
             {
-              diag_event_t irq_ack_evt;
-              irq_ack_evt.id = DIAG_EVT_LAN_IRQ_ACK_FAIL;
-              irq_ack_evt.severity = DIAG_SEV_ERR;
-              irq_ack_evt.dev = 8u;
-              irq_ack_evt.reg = irq_regs.ana_anevents;
-              irq_ack_evt.arg0 = (uint32_t)ack_st;
-              irq_ack_evt.arg1 = irq_regs.intr_ident;
-              (void)diag_core_report(&irq_ack_evt);
-              (void)diag_router_write_event(&irq_ack_evt);
+              changed = 1u;
+            }
+
+            if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
+            {
+              periodic = 1u;
+            }
+
+            if ((irq_eval.has_cause != 0u) &&
+                ((changed != 0u) || (periodic != 0u)) &&
+                ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_REPORT_CAUSE) != 0u))
+            {
+              diag_event_t irq_cause_evt;
+              irq_cause_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
+              irq_cause_evt.severity = lan9645_irq_diag_severity(irq_eval.severity_code);
+              irq_cause_evt.dev = 8u;
+              irq_cause_evt.reg = irq_eval.ana_anevents;
+              irq_cause_evt.arg0 = irq_eval.intr_ident;
+              irq_cause_evt.arg1 = irq_eval.dev_pending;
+              (void)diag_core_report(&irq_cause_evt);
+              (void)diag_router_write_event(&irq_cause_evt);
+              g_lan_irq_last_report_ms = now_ms;
+            }
+
+            if (((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_REPORT_DROP_ALERT) != 0u) &&
+                (irq_eval.drop_events != 0u) &&
+                (irq_eval.drop_events != prev_drop_pending))
+            {
+              diag_event_t drop_evt;
+              drop_evt.id = DIAG_EVT_LAN_DROP_COUNTER_ALERT;
+              drop_evt.severity = DIAG_SEV_WARN;
+              drop_evt.dev = 8u;
+              drop_evt.reg = irq_eval.ana_anevents;
+              drop_evt.arg0 = irq_eval.drop_events;
+              drop_evt.arg1 = irq_eval.dev_pending;
+              (void)diag_core_report(&drop_evt);
+              (void)diag_router_write_event(&drop_evt);
+            }
+
+            if ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_ESCALATE_ERROR_LED) != 0u)
+            {
+              (void)ui_service_set_error(1u);
+            }
+
+            g_lan_irq_last_ana_anaintr = irq_regs.ana_anaintr;
+            g_lan_irq_last_ana_anevents = irq_eval.ana_anevents;
+            g_lan_irq_last_intr_ident = irq_eval.intr_ident;
+            g_lan_irq_last_intr_ident1 = irq_eval.intr_ident1;
+            g_lan_irq_last_dev_pending = irq_eval.dev_pending;
+
+            if ((irq_eval.ack_required != 0u) &&
+                ((irq_eval.action_mask & LAN9645_CORE_IRQ_ACTION_ACK_ANA_EVENTS) != 0u))
+            {
+              uint32_t remaining = 0u;
+              app_status_t ack_st = lan9645_core_ack_irq_checked(&g_lan_core, irq_eval.ana_anevents, &remaining);
+              if (ack_st != APP_OK)
+              {
+                diag_event_t irq_ack_evt;
+                irq_ack_evt.id = DIAG_EVT_LAN_IRQ_ACK_FAIL;
+                irq_ack_evt.severity = DIAG_SEV_ERR;
+                irq_ack_evt.dev = 8u;
+                irq_ack_evt.reg = irq_eval.ana_anevents;
+                irq_ack_evt.arg0 = (uint32_t)(int32_t)ack_st;
+                irq_ack_evt.arg1 = remaining;
+                (void)diag_core_report(&irq_ack_evt);
+                (void)diag_router_write_event(&irq_ack_evt);
+              }
             }
           }
+        }
+        else if ((now_ms - g_lan_irq_last_report_ms) >= LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS)
+        {
+          diag_event_t irq_read_evt;
+          irq_read_evt.id = DIAG_EVT_LAN_IRQ_CAUSE;
+          irq_read_evt.severity = DIAG_SEV_ERR;
+          irq_read_evt.dev = 8u;
+          irq_read_evt.reg = 0u;
+          irq_read_evt.arg0 = (uint32_t)(int32_t)irq_st;
+          irq_read_evt.arg1 = 0u;
+          (void)diag_core_report(&irq_read_evt);
+          (void)diag_router_write_event(&irq_read_evt);
+          g_lan_irq_last_report_ms = now_ms;
         }
       }
 

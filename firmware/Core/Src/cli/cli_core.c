@@ -207,6 +207,19 @@ static const char *cli_port_speed_to_str(uint16_t speed_mbps)
   return "unknown";
 }
 
+/** @brief Converts LAN9645 IRQ analysis severity code into readable text. */
+static const char *cli_irq_severity_to_str(uint8_t severity_code)
+{
+  switch (severity_code) {
+    case LAN9645_CORE_IRQ_SEV_ERR: return "err";
+    case LAN9645_CORE_IRQ_SEV_WARN: return "warn";
+    case LAN9645_CORE_IRQ_SEV_INFO:
+    default:
+      break;
+  }
+  return "info";
+}
+
 /** @brief Returns 1 when the port belongs to the managed baseline scope (0, 1, 8). */
 static uint8_t cli_is_managed_port(uint32_t port)
 {
@@ -847,6 +860,7 @@ static app_status_t cli_cmd_irq_show(void)
   lan9645_core_t *core = lan9645_runtime_get_core();
   lan9645_irq_state_t irq_state = {0};
   lan9645_core_irq_regs_t irq_regs = {0};
+  lan9645_core_irq_analysis_t irq_eval = {0};
   app_status_t st = lan9645_runtime_irq_get(&irq_state);
   if (st != APP_OK) {
     return st;
@@ -882,6 +896,22 @@ static app_status_t cli_cmd_irq_show(void)
         (unsigned long)LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ident),
         (unsigned long)LAN9645_FIELD_GET(LAN9645_CPU_DEV_INTR_MASK, irq_regs.dev_intr_ena)
       );
+      st = lan9645_core_eval_irq_actions(&irq_regs, &irq_eval);
+      if (st == APP_OK) {
+        (void)cli_writef(
+          "irq eval cause=%u sev=%s ack=%u dev_pending=0x%03lX drop=0x%08lX warn=0x%08lX err=0x%08lX actions=0x%02lX\r\n",
+          (unsigned int)irq_eval.has_cause,
+          cli_irq_severity_to_str(irq_eval.severity_code),
+          (unsigned int)irq_eval.ack_required,
+          (unsigned long)irq_eval.dev_pending,
+          (unsigned long)irq_eval.drop_events,
+          (unsigned long)irq_eval.warn_events,
+          (unsigned long)irq_eval.err_events,
+          (unsigned long)irq_eval.action_mask
+        );
+      } else {
+        (void)cli_writef("irq eval unavailable st=%ld\r\n", (long)st);
+      }
       cli_irq_print_ana_events(irq_regs.ana_anevents);
     } else {
       (void)cli_writef("irq regs unavailable st=%ld\r\n", (long)st);
@@ -907,6 +937,7 @@ static app_status_t cli_cmd_irq_ack(void)
 {
   lan9645_core_t *core = lan9645_runtime_get_core();
   lan9645_core_irq_regs_t irq_regs = {0};
+  uint32_t remaining = 0u;
   app_status_t st = APP_OK;
 
   if ((core == NULL) || (core->initialized == 0u) || (core->reg == NULL)) {
@@ -918,12 +949,22 @@ static app_status_t cli_cmd_irq_ack(void)
     return st;
   }
 
-  st = lan9645_core_ack_irq(core, irq_regs.ana_anevents);
+  st = lan9645_core_ack_irq_checked(core, irq_regs.ana_anevents, &remaining);
   if (st != APP_OK) {
+    (void)cli_writef(
+      "irq ack failed ana_anevents=0x%08lX remaining=0x%08lX st=%ld\r\n",
+      (unsigned long)irq_regs.ana_anevents,
+      (unsigned long)remaining,
+      (long)st
+    );
     return st;
   }
 
-  (void)cli_writef("irq ack ana_anevents=0x%08lX\r\n", (unsigned long)irq_regs.ana_anevents);
+  (void)cli_writef(
+    "irq ack ana_anevents=0x%08lX remaining=0x%08lX\r\n",
+    (unsigned long)irq_regs.ana_anevents,
+    (unsigned long)remaining
+  );
   return APP_OK;
 }
 

@@ -22,6 +22,60 @@ extern "C" {
 #define LAN9645_CORE_PORT_SPEED_10_MBPS    (10u)
 /** @brief Port speed selector used by the LAN9645 core API for 100 Mbit/s operation. */
 #define LAN9645_CORE_PORT_SPEED_100_MBPS   (100u)
+/** @brief Severity code returned by IRQ analysis when no warning/error condition is present. */
+#define LAN9645_CORE_IRQ_SEV_INFO          (0u)
+/** @brief Severity code returned by IRQ analysis for warning-level causes. */
+#define LAN9645_CORE_IRQ_SEV_WARN          (1u)
+/** @brief Severity code returned by IRQ analysis for error-level causes. */
+#define LAN9645_CORE_IRQ_SEV_ERR           (2u)
+
+/** @brief ANA event bit for LLCT port errors. */
+#define LAN9645_CORE_ANA_EVT_LLCT_PORT_ERR      LAN9645_BIT(30u)
+/** @brief ANA event bit for CPU learn failures. */
+#define LAN9645_CORE_ANA_EVT_CPU_LEARN_FAILED   LAN9645_BIT(21u)
+/** @brief ANA event bit for automatic learn failures. */
+#define LAN9645_CORE_ANA_EVT_AUTO_LEARN_FAILED  LAN9645_BIT(20u)
+/** @brief ANA event bit for learn-drop notifications. */
+#define LAN9645_CORE_ANA_EVT_LEARN_DROP         LAN9645_BIT(23u)
+/** @brief ANA event bit for aged-entry notifications. */
+#define LAN9645_CORE_ANA_EVT_AGED_ENTRY         LAN9645_BIT(22u)
+/** @brief ANA event bit for dropped-frame notifications. */
+#define LAN9645_CORE_ANA_EVT_DROPPED            LAN9645_BIT(16u)
+/** @brief ANA event bit for classified-drop notifications. */
+#define LAN9645_CORE_ANA_EVT_CLASSIFIED_DROP    LAN9645_BIT(15u)
+/** @brief ANA event bit for VLAN discard notifications. */
+#define LAN9645_CORE_ANA_EVT_VLAN_DISCARD       LAN9645_BIT(13u)
+/** @brief ANA event bit for forwarding discard notifications. */
+#define LAN9645_CORE_ANA_EVT_FWD_DISCARD        LAN9645_BIT(12u)
+/** @brief ANA event bit for sequence-generator errors (channel 0). */
+#define LAN9645_CORE_ANA_EVT_SEQ_GEN_ERR_0      LAN9645_BIT(1u)
+/** @brief ANA event bit for sequence-generator errors (channel 1). */
+#define LAN9645_CORE_ANA_EVT_SEQ_GEN_ERR_1      LAN9645_BIT(0u)
+
+/** @brief Aggregate mask for error-class ANA events. */
+#define LAN9645_CORE_ANA_EVT_ERR_MASK           (LAN9645_CORE_ANA_EVT_LLCT_PORT_ERR | \
+                                                 LAN9645_CORE_ANA_EVT_CPU_LEARN_FAILED | \
+                                                 LAN9645_CORE_ANA_EVT_AUTO_LEARN_FAILED | \
+                                                 LAN9645_CORE_ANA_EVT_SEQ_GEN_ERR_0 | \
+                                                 LAN9645_CORE_ANA_EVT_SEQ_GEN_ERR_1)
+/** @brief Aggregate mask for drop-related ANA events. */
+#define LAN9645_CORE_ANA_EVT_DROP_MASK          (LAN9645_CORE_ANA_EVT_DROPPED | \
+                                                 LAN9645_CORE_ANA_EVT_CLASSIFIED_DROP | \
+                                                 LAN9645_CORE_ANA_EVT_VLAN_DISCARD | \
+                                                 LAN9645_CORE_ANA_EVT_FWD_DISCARD | \
+                                                 LAN9645_CORE_ANA_EVT_LEARN_DROP)
+/** @brief Aggregate mask for warning-class ANA events. */
+#define LAN9645_CORE_ANA_EVT_WARN_MASK          (LAN9645_CORE_ANA_EVT_DROP_MASK | \
+                                                 LAN9645_CORE_ANA_EVT_AGED_ENTRY)
+
+/** @brief Action flag: report one generic IRQ cause event. */
+#define LAN9645_CORE_IRQ_ACTION_REPORT_CAUSE      (1u << 0)
+/** @brief Action flag: report one drop-alert event. */
+#define LAN9645_CORE_IRQ_ACTION_REPORT_DROP_ALERT (1u << 1)
+/** @brief Action flag: acknowledge ANA events through W1C. */
+#define LAN9645_CORE_IRQ_ACTION_ACK_ANA_EVENTS    (1u << 2)
+/** @brief Action flag: raise error LED/escalation path for error-class events. */
+#define LAN9645_CORE_IRQ_ACTION_ESCALATE_ERROR_LED (1u << 3)
 
 /**
  * @brief Runtime context for the LAN9645 switch core.
@@ -58,6 +112,23 @@ typedef struct {
   uint8_t mac_rx_ena;   /**< Set when `DEV_MAC_ENA_CFG.RX_ENA` is asserted. */
   uint8_t mac_tx_ena;   /**< Set when `DEV_MAC_ENA_CFG.TX_ENA` is asserted. */
 } lan9645_core_port_cfg_t;
+
+/**
+ * @brief Decoded IRQ-cause and action mapping derived from one IRQ register snapshot.
+ */
+typedef struct {
+  uint32_t ana_anevents; /**< Raw ANA_ANEVENTS snapshot. */
+  uint32_t intr_ident;   /**< Raw CPU_INTR_IDENT snapshot. */
+  uint32_t intr_ident1;  /**< Raw CPU_INTR_IDENT1 snapshot. */
+  uint32_t dev_pending;  /**< Decoded `CPU_DEV_INTR_IDENT` pending mask. */
+  uint32_t drop_events;  /**< Drop-related ANA events (`LAN9645_CORE_ANA_EVT_DROP_MASK`). */
+  uint32_t warn_events;  /**< Warning-related ANA events (`LAN9645_CORE_ANA_EVT_WARN_MASK`). */
+  uint32_t err_events;   /**< Error-related ANA events (`LAN9645_CORE_ANA_EVT_ERR_MASK`). */
+  uint32_t action_mask;  /**< Recommended action bitmask (`LAN9645_CORE_IRQ_ACTION_*`). */
+  uint8_t has_cause;     /**< Set when any IRQ cause is currently latched. */
+  uint8_t ack_required;  /**< Set when ANA events should be acknowledged via W1C. */
+  uint8_t severity_code; /**< One of `LAN9645_CORE_IRQ_SEV_*`. */
+} lan9645_core_irq_analysis_t;
 
 /**
  * @brief Initializes the LAN9645 core helper.
@@ -238,6 +309,34 @@ app_status_t lan9645_core_get_irq_regs(lan9645_core_t *ctx, lan9645_core_irq_reg
  * @return @ref APP_OK on success.
  */
 app_status_t lan9645_core_ack_irq(lan9645_core_t *ctx, uint32_t ana_anevents_mask);
+
+/**
+ * @brief Acknowledges ANA events and verifies that acknowledged bits are cleared.
+ *
+ * @param[in,out] ctx Core context.
+ * @param[in] ana_anevents_mask Event mask to acknowledge.
+ * @param[out] remaining_mask Optional remaining ANA event bits after acknowledge.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_ack_irq_checked(
+  lan9645_core_t *ctx,
+  uint32_t ana_anevents_mask,
+  uint32_t *remaining_mask
+);
+
+/**
+ * @brief Decodes one IRQ register snapshot into severity and action recommendations.
+ *
+ * @param[in] regs IRQ register snapshot captured from hardware.
+ * @param[out] out Decoded analysis.
+ *
+ * @return @ref APP_OK on success.
+ */
+app_status_t lan9645_core_eval_irq_actions(
+  const lan9645_core_irq_regs_t *regs,
+  lan9645_core_irq_analysis_t *out
+);
 
 #ifdef __cplusplus
 }

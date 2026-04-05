@@ -457,6 +457,55 @@ F4 software status:
 Hardware validation status:
 - `not performed` (board unavailable).
 
+## 2.6.5) F5 Progress Snapshot (April 5, 2026)
+
+F5 objective:
+- explicit IRQ cause-to-action mapping with unified acknowledgement/reporting behavior.
+
+Implemented now in firmware:
+- `Core/Inc/lan9645/lan9645_core.h`
+  - added locked IRQ analysis model:
+    - `lan9645_core_irq_analysis_t`
+  - added severity codes:
+    - `LAN9645_CORE_IRQ_SEV_INFO`
+    - `LAN9645_CORE_IRQ_SEV_WARN`
+    - `LAN9645_CORE_IRQ_SEV_ERR`
+  - added canonical ANA event-class masks:
+    - `LAN9645_CORE_ANA_EVT_ERR_MASK`
+    - `LAN9645_CORE_ANA_EVT_WARN_MASK`
+    - `LAN9645_CORE_ANA_EVT_DROP_MASK`
+  - added action flags:
+    - `LAN9645_CORE_IRQ_ACTION_REPORT_CAUSE`
+    - `LAN9645_CORE_IRQ_ACTION_REPORT_DROP_ALERT`
+    - `LAN9645_CORE_IRQ_ACTION_ACK_ANA_EVENTS`
+    - `LAN9645_CORE_IRQ_ACTION_ESCALATE_ERROR_LED`
+  - added APIs:
+    - `lan9645_core_eval_irq_actions()`
+    - `lan9645_core_ack_irq_checked()`
+- `Core/Src/lan9645/lan9645_core.c`
+  - implemented deterministic IRQ evaluation:
+    - maps snapshots to severity/action recommendations
+    - decodes pending device mask from `CPU_DEV_INTR_IDENT`
+  - implemented checked acknowledge path:
+    - W1C write to `ANA_ANEVENTS`
+    - readback verification that acknowledged bits are cleared
+- `Core/Src/main.c`
+  - switched runtime IRQ logic to use `lan9645_core_eval_irq_actions()`
+  - switched ACK path to `lan9645_core_ack_irq_checked()`
+  - `DIAG_EVT_LAN_IRQ_ACK_FAIL` now carries remaining uncleared mask in `arg1`
+  - reporting cadence kept deterministic with `LAN9645_IRQ_CAUSE_REPORT_INTERVAL_MS`
+  - error-class IRQ causes now trigger the error LED path (`ui_service_set_error(1)`)
+- `Core/Src/cli/cli_core.c`
+  - `irq show` now prints decoded evaluation snapshot:
+    - severity, cause-present flag, ack-required flag, action mask, decoded event groups
+  - `irq ack` now uses checked ACK and reports remaining bits on failure
+
+F5 software status:
+- **Software complete (baseline scope)**
+
+Hardware validation status:
+- `not performed` (board unavailable).
+
 ---
 
 ## 2.5) Section-by-Section Tracker (Implementation Order)
