@@ -42,17 +42,20 @@
 #endif /* WITH_RTOS */
 
 /* USER CODE BEGIN 0 */
+/**
+ * @brief Snapshot of the active LwIP netif state exported to the CLI.
+ */
 typedef struct {
-  uint8_t netif_up;
-  uint8_t link_up;
-  uint8_t is_default;
-  uint16_t mtu;
-  uint16_t flags;
-  uint8_t mac[6];
-  char ip[16];
-  char netmask[16];
-  char gateway[16];
-  uint32_t sample_tick_ms;
+  uint8_t netif_up;        /**< Set when the LwIP netif is administratively up. */
+  uint8_t link_up;         /**< Set when the LwIP netif reports a physical link. */
+  uint8_t is_default;      /**< Set when this netif is the current default route. */
+  uint16_t mtu;            /**< Current netif MTU. */
+  uint16_t flags;          /**< Raw LwIP netif flags field. */
+  uint8_t mac[6];          /**< MAC address currently assigned to the netif. */
+  char ip[16];             /**< Printable IPv4 address string. */
+  char netmask[16];        /**< Printable IPv4 netmask string. */
+  char gateway[16];        /**< Printable IPv4 gateway string. */
+  uint32_t sample_tick_ms; /**< System tick captured with the snapshot. */
 } lwip_runtime_state_t;
 
 /* USER CODE END 0 */
@@ -71,6 +74,14 @@ void MX_LWIP_Init(void);
  *   - Handle timeouts if NO_SYS_NO_TIMERS not set
  */
 void MX_LWIP_Process(void);
+
+/**
+ * @brief Returns a CLI-friendly snapshot of the LwIP runtime state.
+ *
+ * @param[out] out Destination structure for the runtime snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t lwip_get_runtime_state(lwip_runtime_state_t *out);
 
 /* USER CODE END 1 */

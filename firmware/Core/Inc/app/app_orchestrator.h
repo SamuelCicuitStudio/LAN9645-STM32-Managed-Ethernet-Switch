@@ -1,6 +1,11 @@
 #ifndef APP_ORCHESTRATOR_H
 #define APP_ORCHESTRATOR_H
 
+/**
+ * @file app_orchestrator.h
+ * @brief High-level boot and runtime state machine for the firmware.
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -9,6 +14,9 @@ extern "C" {
 
 #include "app_common_types.h"
 
+/**
+ * @brief Main firmware phases used during bring-up and steady-state operation.
+ */
 typedef enum {
   APP_STATE_BOOT = 0,
   APP_STATE_LAN_RESET,
@@ -19,18 +27,64 @@ typedef enum {
   APP_STATE_FAULT
 } app_state_t;
 
+/**
+ * @brief Snapshot of the orchestrator state machine.
+ */
 typedef struct {
-  app_state_t state;
-  app_state_t prev_state;
-  uint32_t last_transition_ms;
-  uint32_t fault_code;
+  app_state_t state;             /**< Current orchestrator state. */
+  app_state_t prev_state;        /**< Previous state before the last transition. */
+  uint32_t last_transition_ms;   /**< Tick count captured at the last transition. */
+  uint32_t fault_code;           /**< Latched fault code when state is @ref APP_STATE_FAULT. */
 } app_orchestrator_snapshot_t;
 
+/**
+ * @brief Initializes the orchestrator state machine.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_init(void);
+
+/**
+ * @brief Moves the application into a new orchestrator state.
+ *
+ * @param[in] state Next application state.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_set_state(app_state_t state);
+
+/**
+ * @brief Latches a fault code and transitions the application into fault state.
+ *
+ * @param[in] fault_code Firmware-defined fault reason.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_set_fault(uint32_t fault_code);
+
+/**
+ * @brief Returns the current orchestrator state.
+ *
+ * @return Current application state.
+ */
 app_state_t app_orchestrator_get_state(void);
+
+/**
+ * @brief Converts an application state into a printable name.
+ *
+ * @param[in] state State value to convert.
+ *
+ * @return Pointer to a constant string describing the state.
+ */
 const char *app_orchestrator_state_name(app_state_t state);
+
+/**
+ * @brief Returns a full snapshot of the orchestrator state machine.
+ *
+ * @param[out] out Destination structure for the snapshot.
+ *
+ * @return @ref APP_OK on success.
+ */
 app_status_t app_orchestrator_get_snapshot(app_orchestrator_snapshot_t *out);
 
 #ifdef __cplusplus
